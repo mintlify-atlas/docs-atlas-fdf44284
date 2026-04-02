@@ -1,0 +1,105 @@
+---
+title: "Floodgate Integration"
+description: "Allow Bedrock players to join your Java server without a Java Edition account using the Floodgate companion plugin."
+---
+
+Floodgate is a companion plugin for Geyser that lets Bedrock players connect to online-mode Java servers **without owning a Java Edition account**. Without Floodgate, Bedrock players must authenticate through a Java account before joining. With Floodgate installed, they log in using their Xbox/Microsoft credentials instead.
+
+<Note>
+  Floodgate is a separate project from Geyser. Visit the [Floodgate repository](https://github.com/GeyserMC/Floodgate) for downloads and additional documentation.
+</Note>
+
+## How Floodgate works
+
+When a Bedrock player connects through Geyser with Floodgate enabled, Geyser injects encrypted player data (username, Xbox UID) into the handshake. Floodgate on the backend server reads and verifies this data, then derives a unique UUID from the player's Xbox UID. This UUID is consistent across sessions and allows the server to track the player without a Mojang account.
+
+Floodgate uses a public/private key pair for encryption. Geyser holds the public key and Floodgate holds the private key, ensuring that only an authorised Geyser instance can send valid player data.
+
+## Setting up Floodgate with Geyser
+
+<Steps>
+  <Step title="Download and install Floodgate">
+    Download Floodgate from [the Floodgate repository](https://github.com/GeyserMC/Floodgate) and place the JAR in your server's `plugins/` (Spigot/Paper) or `mods/` (Fabric) directory. Start your server once to let Floodgate generate its key files.
+  </Step>
+
+  <Step title="Copy the public key to Geyser">
+    After starting the server, Floodgate generates a `key.pem` file in its plugin data folder (e.g. `plugins/floodgate/key.pem`). Copy this file to Geyser's config directory.
+
+    If Geyser and Floodgate are running **on the same server**, Geyser will automatically find the key and no manual copy is needed.
+  </Step>
+
+  <Step title="Set auth-type to floodgate in Geyser's config">
+    Open Geyser's `config.yml` and set the `auth-type` under the `remote` section to `floodgate`:
+
+    ```yaml
+    remote:
+      address: auto
+      port: 25565
+      auth-type: floodgate
+    ```
+  </Step>
+
+  <Step title="Confirm the floodgate-key-file path">
+    In Geyser's `config.yml`, verify the `floodgate-key-file` option points to the correct key file. The default value is `key.pem`, which resolves relative to Geyser's config directory.
+
+    ```yaml
+    advanced:
+      floodgate-key-file: key.pem
+    ```
+  </Step>
+
+  <Step title="Restart both Geyser and the backend server">
+    Restart the server (or the proxy and all backend servers) so both Geyser and Floodgate load with the updated configuration.
+  </Step>
+</Steps>
+
+<Warning>
+  In a proxy network (BungeeCord, Velocity), Floodgate **must be installed on every backend server**, not just the proxy. If any backend server is missing Floodgate, Bedrock players will be kicked when they are sent to that server.
+</Warning>
+
+## Auth types
+
+Geyser supports three authentication modes, configured with the `auth-type` field:
+
+| Value       | Behaviour                                                                                         |
+|-------------|---------------------------------------------------------------------------------------------------|
+| `online`    | Bedrock players must authenticate with a Java Edition account via Microsoft login (default).       |
+| `floodgate` | Bedrock players authenticate with their Xbox account. Requires Floodgate on the backend server.   |
+| `offline`   | No authentication is performed. Use only on offline-mode (cracked) servers.                       |
+
+## Bedrock player UUIDs
+
+When Floodgate authenticates a Bedrock player, it derives a UUID from the player's Xbox UID (XUID). This UUID:
+
+- Is **deterministic** — the same player always receives the same UUID.
+- Is **prefixed** to avoid collisions with Java player UUIDs.
+- Is used by the server for permissions, data storage, and all player-tracking systems.
+
+The XUID-derived UUID means you can reliably grant permissions or store player data for Bedrock players without them ever logging into a Java account.
+
+## savedUserLogins — Java accounts for Bedrock players
+
+For Bedrock players who also own a Java Edition account, Geyser provides the `savedUserLogins` feature. When a player's username is on this list and they connect through Geyser with `auth-type: online`, Geyser prompts them to link their Microsoft account once. It then saves a refresh token so subsequent logins are automatic.
+
+```yaml
+saved-user-logins:
+  - ExampleBedrockPlayer
+  - AnotherPlayer
+```
+
+<Note>
+  `savedUserLogins` only applies when `auth-type` is `online`. It is not used with Floodgate. Tokens are stored in `saved-refresh-tokens.json` in Geyser's config directory. No passwords or emails are saved.
+</Note>
+
+The `pending-authentication-timeout` option (default: 120 seconds) controls how long Geyser waits for the player to complete the Microsoft login flow before disconnecting them.
+
+## Floodgate on a proxy network
+
+When running a BungeeCord or Velocity proxy:
+
+1. Install Floodgate on the **proxy** (BungeeCord or Velocity variant).
+2. Install Floodgate on **every backend Spigot/Paper server**.
+3. Install Geyser on the proxy only.
+4. Copy the **same** `key.pem` from the proxy's Floodgate to every backend server's Floodgate plugin folder.
+
+All instances must share the same key pair. Using different keys will cause authentication failures when players switch between backend servers.

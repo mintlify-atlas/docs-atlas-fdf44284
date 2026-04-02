@@ -1,0 +1,237 @@
+---
+title: "Player Connections"
+description: "Access and control Bedrock player connections via GeyserConnection, including camera, fogs, and HUD."
+---
+
+`GeyserConnection` represents an active Bedrock player session. It gives you access to identity information, camera controls, entity data, and more.
+
+## Accessing connections
+
+```java
+import org.geysermc.geyser.api.GeyserApi;
+import org.geysermc.geyser.api.connection.GeyserConnection;
+
+// All currently online Bedrock players
+List<? extends GeyserConnection> all = GeyserApi.api().onlineConnections();
+
+// By Java UUID
+GeyserConnection conn = GeyserApi.api().connectionByUuid(uuid);
+
+// By Bedrock XUID
+GeyserConnection conn = GeyserApi.api().connectionByXuid(xuid);
+```
+
+Both `connectionByUuid` and `connectionByXuid` return `null` if no matching connection is found.
+
+---
+
+## GeyserConnection reference
+
+`GeyserConnection` (in `org.geysermc.geyser.api.connection`) extends `Connection` and `CommandSource`.
+
+### Identity
+
+```java
+String name = connection.name();            // Minecraft username
+UUID uuid = connection.javaUuid();          // Java Edition UUID
+String xuid = connection.xuid();            // Bedrock XUID
+String playFabId = connection.playFabId();  // PlayFab ID (since 2.9.4)
+```
+
+### Network
+
+```java
+int ping = connection.ping();
+String joinAddress = connection.joinAddress(); // hostname/IP used to join (since 2.8.3)
+int joinPort = connection.joinPort();          // port used to join (since 2.8.3)
+int protocolVersion = connection.protocolVersion(); // Bedrock protocol version
+```
+
+### Forms and dialogs
+
+```java
+boolean open = connection.hasFormOpen();    // true if a form is currently open (since 2.8.0)
+connection.closeForm();                     // close the current form
+connection.openPauseScreenAdditions();      // open the pause screen additions dialog (since 2.8.0)
+connection.openQuickActions();              // open the quick actions dialog (since 2.8.0)
+```
+
+### Commands
+
+```java
+connection.sendCommand("say Hello from Geyser!"); // execute as the player (since 2.8.0)
+```
+
+### Skins
+
+```java
+// Apply a custom skin to a player as seen by this connection (since 2.8.3)
+connection.sendSkin(playerUuid, skinData);
+```
+
+### Entities
+
+```java
+EntityData entities = connection.entities();
+GeyserPlayerEntity player = connection.playerEntity(); // since 2.9.3
+connection.requestOffhandSwap(); // request offhand swap on Java server (since 2.9.3)
+```
+
+### Emotes
+
+```java
+connection.showEmote(playerEntity, emoteId);
+```
+
+---
+
+## CameraData API
+
+The `CameraData` interface controls the Bedrock client's camera. Access it via `connection.camera()`.
+
+```java
+CameraData camera = connection.camera();
+```
+
+### Camera fades
+
+A `CameraFade` dims or flashes the screen. Build one with `CameraFade.Builder`:
+
+```java
+camera.sendCameraFade(fade); // CameraFade built via CameraFade.Builder
+```
+
+To stop a fade in progress:
+
+```java
+camera.clearCameraInstructions();
+```
+
+### Camera position
+
+Send a `CameraPosition` instruction to move the camera to an explicit position. Positions are built via `CameraPosition.Builder`:
+
+```java
+camera.sendCameraPosition(position);
+```
+
+<Note>
+  `CameraPosition` is the only way to put the client into a "free camera" mode not tied to the player's location. `forceCameraPerspective` cannot do this.
+</Note>
+
+To reset camera position/stop ongoing instructions:
+
+```java
+camera.clearCameraInstructions();
+```
+
+### Forcing a camera perspective
+
+Lock the player to a specific `CameraPerspective` (first-person, third-person, etc.):
+
+```java
+import org.geysermc.geyser.api.bedrock.camera.CameraPerspective;
+
+camera.forceCameraPerspective(CameraPerspective.FIRST_PERSON);
+camera.forceCameraPerspective(CameraPerspective.THIRD_PERSON_BACK);
+camera.forceCameraPerspective(CameraPerspective.THIRD_PERSON_FRONT);
+
+// Check what perspective is currently forced (null if none)
+CameraPerspective forced = camera.forcedCameraPerspective();
+
+// Unlock the forced perspective
+camera.clearCameraInstructions();
+```
+
+### Camera shake
+
+```java
+import org.geysermc.geyser.api.bedrock.camera.CameraShake;
+
+// Shake with intensity 0.5 for 2 seconds, positional shake type
+camera.shakeCamera(0.5f, 2.0f, CameraShake.POSITIONAL);
+camera.shakeCamera(1.0f, 1.0f, CameraShake.ROTATIONAL);
+
+// Stop all camera shake
+camera.stopCameraShake();
+```
+
+The maximum total shake intensity the client supports is 4. If you send an additional shake of the same type, intensities are layered on top of each other with separate durations.
+
+### Camera lock (input lock)
+
+Prevent the player from rotating the camera:
+
+```java
+import java.util.UUID;
+
+UUID lockOwner = UUID.randomUUID(); // your extension's UUID for this lock
+
+boolean isLocked = camera.lockCamera(true, lockOwner);   // lock
+boolean isLocked = camera.lockCamera(false, lockOwner);  // unlock (same UUID)
+boolean currentlyLocked = camera.isCameraLocked();
+```
+
+Each lock is identified by a UUID. The camera only unlocks when all lock owners release it.
+
+### Fog effects
+
+Fog IDs are documented at [wiki.bedrock.dev](https://wiki.bedrock.dev/documentation/fog-ids.html).
+
+```java
+// Add one or more fog IDs
+camera.sendFog("minecraft:fog_ocean", "minecraft:fog_swamp");
+
+// Remove specific fog IDs
+camera.removeFog("minecraft:fog_ocean");
+
+// Remove all active fogs (pass no arguments)
+camera.removeFog();
+
+// Get all currently active fogs
+Set<String> active = camera.fogEffects();
+```
+
+### HUD element visibility
+
+```java
+import org.geysermc.geyser.api.bedrock.camera.GuiElement;
+
+// Hide one or more HUD elements
+camera.hideElement(GuiElement.HEALTH, GuiElement.HOTBAR);
+
+// Reset elements back to client-controlled visibility
+camera.resetElement(GuiElement.HEALTH);
+
+// Reset all hidden elements
+camera.resetElement(); // pass no arguments
+
+// Check if an element is hidden
+boolean hidden = camera.isHudElementHidden(GuiElement.HEALTH);
+
+// Get all currently hidden elements
+Set<GuiElement> hiddenElements = camera.hiddenElements();
+```
+
+---
+
+## Example: welcome message and camera shake on join
+
+```java
+@Subscribe
+public void onJoin(SessionJoinEvent event) {
+    GeyserConnection conn = event.connection();
+    conn.camera().shakeCamera(0.3f, 1.0f, CameraShake.POSITIONAL);
+    this.logger().info(conn.name() + " joined from Bedrock. Ping: " + conn.ping() + "ms");
+}
+```
+
+## Example: custom fog on a specific player
+
+```java
+@Subscribe
+public void onJoin(SessionJoinEvent event) {
+    GeyserConnection conn = event.connection();
+    conn.camera().sendFog("minecraft:fog_hell"); // nether fog for everyone!
+}
+```

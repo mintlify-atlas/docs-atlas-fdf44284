@@ -1,0 +1,90 @@
+---
+title: "Spigot Setup"
+description: "Install Geyser on a Spigot, Paper, or Folia server to allow Bedrock players to connect."
+---
+
+Geyser-Spigot runs as a plugin on your Bukkit-based server (Spigot, Paper, Folia, and compatible forks). It is the recommended platform when you run a standalone Java server without a proxy.
+
+## Prerequisites
+
+- Java 17 or later
+- Spigot 1.13.2 or later (Paper is strongly recommended; plain Spigot uses an outdated version of Netty)
+- The server must **not** have BungeeCord or Velocity proxy mode enabled in its config — install Geyser on the proxy instead when using a network
+
+<Warning>
+  If your Spigot server has `settings.bungeecord: true` in `spigot.yml`, or Velocity forwarding enabled in `paper.yml`, Geyser will refuse to start. Install Geyser on the proxy (BungeeCord or Velocity) rather than the backend server in that case.
+</Warning>
+
+## Installation
+
+<Steps>
+  <Step title="Download Geyser">
+    Go to [https://geysermc.org/download](https://geysermc.org/download) and download **Geyser-Spigot**.
+  </Step>
+
+  <Step title="Place the JAR in your plugins folder">
+    Copy the downloaded `Geyser-Spigot.jar` into the `plugins/` folder of your server.
+
+    ```
+    server/
+    └── plugins/
+        └── Geyser-Spigot.jar
+    ```
+  </Step>
+
+  <Step title="Start the server">
+    Start or restart your server. Geyser will generate its configuration file at:
+
+    ```
+    plugins/Geyser-Spigot/config.yml
+    ```
+  </Step>
+
+  <Step title="Configure Geyser">
+    Open `plugins/Geyser-Spigot/config.yml` and review the settings. The defaults work for most setups, but you may want to adjust:
+
+    - `bedrock.address` — the IP Geyser listens on (default `0.0.0.0`)
+    - `bedrock.port` — the UDP port Bedrock clients connect to (default `19132`)
+
+    See the [configuration reference](/configuration/config-reference) for a full description of every option.
+  </Step>
+
+  <Step title="Open the Bedrock port on your firewall">
+    Bedrock clients connect over **UDP**. Make sure port `19132` (or whichever port you configured) is open on your firewall and, if applicable, forwarded on your router.
+
+    <Note>
+      Unlike Java Edition (TCP), Bedrock uses UDP. Many firewalls block UDP by default. Check both your OS firewall and any hosting-panel firewall rules.
+    </Note>
+  </Step>
+
+  <Step title="Verify the connection">
+    Start your server and look for a line in the console similar to:
+
+    ```
+    [Geyser-Spigot] Started Geyser on 0.0.0.0:19132
+    ```
+
+    Bedrock players can now connect using your server's IP address and port `19132`.
+  </Step>
+</Steps>
+
+## Folia support
+
+Geyser-Spigot declares `folia-supported: true` in its plugin manifest and is fully compatible with Folia. No additional configuration is needed.
+
+## ViaVersion
+
+If you install [ViaVersion](https://hangar.papermc.io/ViaVersion/ViaVersion) alongside Geyser, older Java clients can connect. Geyser detects ViaVersion automatically and adjusts its world-manager accordingly.
+
+## Floodgate
+
+[Floodgate](https://geysermc.org/download#floodgate) is an optional companion plugin that lets Bedrock players authenticate without a Java Edition account. Install it in the same `plugins/` folder as Geyser.
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/configuration/config-reference">
+    Full description of every Geyser config option.
+  </Card>
+  <Card title="Download Geyser" icon="download" href="https://geysermc.org/download">
+    Get the latest Geyser-Spigot build.
+  </Card>
+</CardGroup>

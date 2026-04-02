@@ -1,0 +1,115 @@
+---
+title: "Current Limitations"
+description: "Known differences and limitations between Minecraft: Bedrock Edition and Java Edition that Geyser cannot fully bridge."
+---
+
+Geyser translates packets between Bedrock and Java Edition in real time. Because the two games have fundamentally different engines, protocols, and feature sets, some things cannot be perfectly translated. This page documents known limitations.
+
+<Warning>
+  Geyser is not a perfect bridge. Do not expect every Java feature to work identically for Bedrock players, particularly on servers that rely heavily on custom mechanics, anticheat systems, or mod-dependent content.
+</Warning>
+
+## Still being worked on
+
+The following are known gaps that the Geyser team is actively improving:
+
+- **Near-perfect movement** — Bedrock movement does not perfectly match Java movement, which means anticheat plugins on large servers may occasionally flag Bedrock players for false positives.
+- **Some entity flags** — Certain entity state flags from Java Edition do not have a direct Bedrock equivalent and may not be translated correctly.
+
+## Permanent limitations
+
+<AccordionGroup>
+  <Accordion title="Java mods and mod-dependent content">
+    Geyser bridges the **vanilla Java protocol** only. Java mods (Forge, Fabric, NeoForge) add custom packets, items, blocks, and mechanics that exist outside the vanilla protocol. Bedrock clients have no knowledge of these additions.
+
+    - Modded blocks and items will appear as unknown or use fallback mappings.
+    - Custom mod GUIs and interactions will not work.
+    - Geyser cannot translate mod-specific network packets.
+
+    If your server runs mods, Bedrock players will experience a degraded or broken experience for mod-dependent content.
+  </Accordion>
+
+  <Accordion title="Combat and anticheat">
+    Bedrock Edition still uses 1.8-style combat (no attack cooldown by default). Geyser sends a fake cooldown indicator to Bedrock clients, but the underlying combat timing differs from Java Edition.
+
+    - Java anticheat systems may flag Bedrock players for movement or combat patterns that are normal on Bedrock.
+    - The `cooldown-type` config option can be set to `crosshair`, `hotbar`, or `disabled` to control the visual indicator.
+    - Xbox achievements are disabled by default because sending commands to the server is treated as enabling cheats on Bedrock. You can enable them with `xbox-achievements-enabled: true`, but commands will no longer behave as expected for those players.
+  </Accordion>
+
+  <Accordion title="Inventory and UI differences">
+    Bedrock and Java have different inventory layouts and UI systems:
+
+    - The 2×2 crafting grid in survival inventory is displayed differently; unavailable slots are filled with a configurable placeholder item (default: barrier block).
+    - Custom inventory sizes that do not match standard Bedrock sizes may render with placeholder items in unused slots.
+    - Some Java-exclusive inventory interactions (e.g. certain drag behaviours) may not translate exactly.
+    - Bedrock players cannot open arbitrary custom GUIs that rely on Java-only packet types.
+  </Accordion>
+
+  <Accordion title="Redstone and game mechanics">
+    Redstone and certain game mechanics differ between editions at the engine level:
+
+    - Redstone timings and update order differ between Bedrock and Java. Contraptions designed for Java servers may behave differently for Bedrock players visually, even if the server-side state is correct.
+    - Bedrock Edition handles some block interactions (e.g. pistons, observers) on slightly different tick timings.
+    - These differences are in the client rendering and local prediction; the authoritative server state remains Java Edition.
+  </Accordion>
+
+  <Accordion title="Adventure mode and game mode specifics">
+    Some Java-exclusive Adventure mode restrictions do not have a Bedrock equivalent:
+
+    - Block-specific break permissions (`CanDestroy`) and placement permissions (`CanPlaceOn`) defined in NBT are not enforced on the Bedrock client side, though the server will still enforce them.
+    - Some Adventure mode UI feedback differs because Bedrock does not expose the same permission model to the client.
+  </Accordion>
+
+  <Accordion title="Sounds and particles">
+    Sound and particle systems differ between editions:
+
+    - Not every Java sound event maps to a Bedrock sound event. Missing sounds may be silent or substituted.
+    - Custom resource pack sounds on Java servers are not automatically forwarded to Bedrock clients.
+    - Some particle effects unique to Java Edition may not render on Bedrock, or may use a visually different substitute.
+  </Accordion>
+
+  <Accordion title="The Nether ceiling (Y > 127)">
+    Bedrock Edition prevents players from building or displaying blocks above Y 127 in the Nether. Geyser provides a workaround via the `nether-roof-workaround` config option, which remaps the Nether dimension to use the End dimension ID on the Bedrock client.
+
+    ```yaml
+    gameplay:
+      nether-roof-workaround: false
+    ```
+
+    <Warning>
+      Enabling `nether-roof-workaround` causes the entire Nether to display with the same red fog, losing the per-biome fog variation.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Bedrock scaffolding behaviour">
+    Bedrock players can bridge backwards using a scaffolding-style technique that is not possible in Java Edition. If your server's anticheat or gameplay rules prohibit this, you can disable it:
+
+    ```yaml
+    gameplay:
+      disable-bedrock-scaffolding: false
+    ```
+  </Accordion>
+
+  <Accordion title="Performance on large servers">
+    Running Geyser introduces additional overhead:
+
+    - Each Bedrock connection requires Geyser to translate packets in both directions in real time.
+    - Custom skulls, resource pack generation, and skin caching all consume additional disk I/O and CPU.
+    - Scoreboard packet floods can cause lag; the `scoreboard-packet-threshold` advanced option limits scoreboard updates to four per second once a threshold is exceeded.
+    - For high-player-count deployments, consider running Geyser as a standalone proxy rather than as a plugin to isolate its resource usage.
+  </Accordion>
+</AccordionGroup>
+
+## Feature support summary
+
+| Feature                        | Supported | Notes                                              |
+|--------------------------------|-----------|----------------------------------------------------|
+| Vanilla Java gameplay          | Yes       | Core survival, creative, and adventure mechanics.  |
+| Java mods (Forge, Fabric, etc.)| No        | Vanilla protocol only.                             |
+| Java attack cooldown           | Partial   | Visual indicator only; combat timing differs.      |
+| Custom resource packs          | Partial   | Geyser's integrated pack; Java packs not forwarded.|
+| Redstone contraptions          | Partial   | Server state is correct; client visuals may differ.|
+| Nether above Y 127             | Workaround| See `nether-roof-workaround` option.               |
+| All sounds and particles       | Partial   | Missing mappings fall back to substitutes or silence. |
+| Anticheat compatibility        | Partial   | Movement differences may cause false positives.    |

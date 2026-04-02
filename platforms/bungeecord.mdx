@@ -1,0 +1,93 @@
+---
+title: "BungeeCord Setup"
+description: "Install Geyser on a BungeeCord proxy to bridge Bedrock players across your entire network."
+---
+
+When you run a BungeeCord (or Waterfall) network, install Geyser on the **proxy**, not on the individual backend servers. This allows Bedrock players to connect to any server on your network through a single entry point.
+
+## Prerequisites
+
+- Java 17 or later
+- BungeeCord or Waterfall (a BungeeCord fork)
+- Backend servers running Spigot 1.13.2 or later (Paper recommended)
+
+## Installation
+
+<Steps>
+  <Step title="Download Geyser">
+    Go to [https://geysermc.org/download](https://geysermc.org/download) and download **Geyser-BungeeCord**.
+  </Step>
+
+  <Step title="Place the JAR in your proxy plugins folder">
+    Copy the downloaded `Geyser-BungeeCord.jar` into the `plugins/` folder of your **BungeeCord proxy**, not a backend server.
+
+    ```
+    proxy/
+    └── plugins/
+        └── Geyser-BungeeCord.jar
+    ```
+  </Step>
+
+  <Step title="Start the proxy">
+    Start or restart your BungeeCord proxy. Geyser will generate its configuration file at:
+
+    ```
+    plugins/Geyser-BungeeCord/config.yml
+    ```
+  </Step>
+
+  <Step title="Configure Geyser">
+    Open `plugins/Geyser-BungeeCord/config.yml` and review the settings. Adjust as needed:
+
+    - `bedrock.address` — the IP Geyser listens on (default `0.0.0.0`)
+    - `bedrock.port` — the UDP port Bedrock clients connect to (default `19132`)
+
+    See the [configuration reference](/configuration/config-reference) for a full description of every option.
+  </Step>
+
+  <Step title="Configure Floodgate on backend servers (online-mode networks)">
+    If your network runs in **online mode**, backend servers need to be able to verify Bedrock players. Install [Floodgate](https://geysermc.org/download#floodgate) on **every backend server** so they accept Bedrock player connections forwarded by the proxy.
+
+    <Warning>
+      On an online-mode BungeeCord network, Bedrock players will fail to connect to backend servers unless Floodgate is installed on each backend. Floodgate is not required on networks running in offline mode, but offline mode is not recommended for security reasons.
+    </Warning>
+  </Step>
+
+  <Step title="Open the Bedrock port on your firewall">
+    Bedrock clients connect over **UDP**. Make sure port `19132` (or whichever port you configured) is open on your proxy's firewall and forwarded on your router if applicable.
+
+    <Note>
+      Unlike Java Edition (TCP), Bedrock uses UDP. Many firewalls and hosting panels block UDP by default. Ensure both OS-level and panel-level firewall rules allow inbound UDP on the Bedrock port.
+    </Note>
+  </Step>
+
+  <Step title="Verify the connection">
+    Start your proxy and look for a line in the console similar to:
+
+    ```
+    [Geyser-BungeeCord] Started Geyser on 0.0.0.0:19132
+    ```
+
+    Bedrock players can now connect using your proxy's IP address and port `19132`.
+  </Step>
+</Steps>
+
+## Do not install Geyser on backend servers
+
+With this setup, Geyser only needs to run on the proxy. Installing it on backend servers as well will cause conflicts and is not supported.
+
+## Floodgate
+
+[Floodgate](https://geysermc.org/download#floodgate) is an optional companion plugin that lets Bedrock players authenticate without a Java Edition account. For a BungeeCord network:
+
+- Install Floodgate on the **proxy** (alongside Geyser).
+- Install Floodgate on **every backend server** if the network uses online mode.
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/configuration/config-reference">
+    Full description of every Geyser config option.
+  </Card>
+  <Card title="Download Geyser" icon="download" href="https://geysermc.org/download">
+    Get the latest Geyser-BungeeCord build.
+  </Card>
+</CardGroup>

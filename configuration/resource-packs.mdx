@@ -1,0 +1,189 @@
+---
+title: "Resource packs"
+description: "Serve Bedrock resource packs to players connecting through Geyser, using local files or remote URLs."
+---
+
+Geyser can send resource packs to Bedrock clients at connection time. Packs are delivered before the player enters the world, the same way the vanilla Bedrock server delivers them.
+
+Geyser includes its own built-in resource pack that enables certain features (cooldown indicators, custom content mappings). This integrated pack is enabled by default via `gameplay.enable-integrated-pack`.
+
+---
+
+## Placing packs in the packs directory
+
+The simplest way to add a resource pack is to drop a `.mcpack` or `.zip` file into the `packs/` folder inside your Geyser data directory.
+
+<Steps>
+  <Step title="Locate the packs directory">
+    Find the `packs/` directory next to your `config.yml`. It is created automatically when Geyser first starts.
+
+    ```
+    geyser/
+    ├── config.yml
+    ├── packs/          ← place .mcpack files here
+    └── saved-refresh-tokens.json
+    ```
+  </Step>
+  <Step title="Add your pack file">
+    Copy your `.mcpack` or `.zip` resource pack file into the `packs/` directory.
+  </Step>
+  <Step title="Restart Geyser">
+    Restart Geyser. It will detect and load all valid pack files in the directory on startup.
+  </Step>
+</Steps>
+
+<Note>
+  Packs placed in `packs/` are served directly to the Bedrock client over the RakNet connection. Large packs increase connection time because the entire file must be transmitted to the client before they can join.
+</Note>
+
+---
+
+## URL-based pack delivery
+
+Geyser can instruct Bedrock clients to download a resource pack from an HTTPS URL instead of sending the pack data itself over RakNet. This reduces the load on the Geyser server for large packs.
+
+Add URLs to the `advanced.resource-pack-urls` list in `config.yml`:
+
+```yaml config.yml
+advanced:
+  resource-pack-urls:
+    - https://example.com/packs/my-pack.mcpack
+```
+
+### URL requirements
+
+Bedrock Edition enforces strict requirements on URLs used for pack delivery:
+
+- The URL must be a **direct download link** to a `.zip` or `.mcpack` file.
+- The server must respond with `Content-Type: application/zip`.
+- The server must send a correct `Content-Length` header.
+- The URL must use HTTPS.
+
+<Warning>
+  Bedrock clients will refuse to download packs that do not meet the above requirements. Test your URL with `curl -I` to verify the response headers before adding it to the config.
+</Warning>
+
+### Fallback behavior
+
+When a Bedrock client cannot download a pack from a URL (for example due to a firewall or network restriction), Geyser falls back to serving the pack over the RakNet connection by default. You can disable this fallback via the `UrlFallbackOption` API (see [Developer API](#developer-api) below) to disconnect the player instead.
+
+---
+
+## Forcing pack acceptance
+
+By default, Bedrock players must accept and download all packs before joining. You can allow players to skip downloads by disabling `force-resource-packs`:
+
+```yaml config.yml
+gameplay:
+  force-resource-packs: true   # set to false to make packs optional
+```
+
+<Note>
+  Enabling `gameplay.enable-integrated-pack` forces `force-resource-packs` to `true` regardless of the explicit setting, because the integrated pack is required for Geyser features to work correctly.
+</Note>
+
+---
+
+## Developer API
+
+The Geyser API lets plugins and extensions register resource packs programmatically, with control over priority, subpack selection, and URL fallback behavior.
+
+### PathPackCodec — local file
+
+Use `PackCodec.path(Path)` to register a pack from a file on disk:
+
+```java
+import org.geysermc.geyser.api.pack.PackCodec;
+import org.geysermc.geyser.api.pack.ResourcePack;
+
+Path packPath = dataFolder.resolve("my-pack.mcpack");
+ResourcePack pack = ResourcePack.create(PackCodec.path(packPath));
+
+GeyserApi.api().registerEventListener(...); // register via GeyserDefineResourcePacksEvent
+```
+
+### UrlPackCodec — remote URL
+
+Use `PackCodec.url(String)` to register a pack fetched from a URL:
+
+```java
+import org.geysermc.geyser.api.pack.PackCodec;
+import org.geysermc.geyser.api.pack.ResourcePack;
+
+ResourcePack pack = ResourcePack.create(PackCodec.url("https://example.com/packs/my-pack.mcpack"));
+```
+
+### Pack options
+
+Pack behaviour can be customised using `ResourcePackOption` implementations passed at registration time.
+
+#### Priority
+
+Controls the order in which packs are applied on the client. When two packs modify the same texture, the pack with the higher priority wins.
+
+```java
+import org.geysermc.geyser.api.pack.option.PriorityOption;
+
+// Built-in constants
+PriorityOption.HIGHEST  // 100
+PriorityOption.HIGH     // 50
+PriorityOption.NORMAL   // 0
+PriorityOption.LOW      // -50
+PriorityOption.LOWEST   // -100
+
+// Custom value (must be between -100 and 100 inclusive)
+PriorityOption custom = PriorityOption.priority(75);
+```
+
+#### Subpack
+
+Some resource packs contain multiple variants called subpacks. Use `SubpackOption` to select which variant is loaded:
+
+```java
+import org.geysermc.geyser.api.pack.option.SubpackOption;
+
+// Select by subpack name
+SubpackOption option = SubpackOption.named("HighRes");
+
+// Select using a SubpackManifest entry
+SubpackOption option = SubpackOption.subpack(manifest.subpacks().get(0));
+
+// No subpack (default behaviour)
+SubpackOption option = SubpackOption.empty();
+```
+
+Available subpacks are listed in the pack's `manifest.json` and accessible via `ResourcePackManifest.subpacks()`.
+
+#### URL fallback
+
+Controls whether Geyser falls back to RakNet delivery when a client cannot download a URL pack:
+
+```java
+import org.geysermc.geyser.api.pack.option.UrlFallbackOption;
+
+UrlFallbackOption.TRUE   // fall back to RakNet delivery (default)
+UrlFallbackOption.FALSE  // disconnect the player instead
+```
+
+### Content key
+
+You can set an encryption key for a pack using the `ResourcePack.Builder` API:
+
+```java
+ResourcePack pack = ResourcePack.builder(PackCodec.path(packPath))
+    .contentKey("my-secret-key")
+    .build();
+```
+
+---
+
+## Related options
+
+<Columns cols={2}>
+  <Card title="Configuration reference" icon="file-code" href="/configuration/config-reference">
+    Full documentation for `force-resource-packs`, `enable-integrated-pack`, and `resource-pack-urls`.
+  </Card>
+  <Card title="Developer API" icon="code" href="/api/resource-packs">
+    Register resource packs programmatically from a Geyser extension or plugin.
+  </Card>
+</Columns>

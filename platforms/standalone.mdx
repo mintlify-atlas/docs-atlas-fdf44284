@@ -1,0 +1,136 @@
+---
+title: "Standalone Setup"
+description: "Run Geyser as an independent process to bridge Bedrock players to any Java Edition server."
+---
+
+Geyser Standalone runs as its own Java process, separate from any Minecraft server or proxy. It connects to a remote Java Edition server as if it were a regular client, forwarding traffic between Bedrock players and that server.
+
+This mode is useful when:
+
+- You cannot install plugins or mods on the target server (e.g. a server you do not own)
+- You want to keep the bridge process isolated from the game server
+- You are testing Geyser without a full server setup
+
+<Warning>
+  Geyser Standalone acts as a remote client to the Java server. Features that rely on direct server access — such as reading chunk data via the world manager — are unavailable in standalone mode. Expect reduced functionality compared to plugin/mod deployments.
+</Warning>
+
+## Prerequisites
+
+- Java 17 or later
+- Network access to the target Java Edition server
+
+## Installation
+
+<Steps>
+  <Step title="Download Geyser Standalone">
+    Go to [https://geysermc.org/download](https://geysermc.org/download) and download **Geyser-Standalone**.
+  </Step>
+
+  <Step title="Create a working directory">
+    Place the downloaded JAR in a dedicated folder. Geyser will write its configuration and data files alongside the JAR.
+
+    ```
+    geyser/
+    └── Geyser-Standalone.jar
+    ```
+  </Step>
+
+  <Step title="Run Geyser for the first time">
+    Run the JAR to generate the default configuration file:
+
+    ```bash
+    java -jar Geyser-Standalone.jar
+    ```
+
+    Geyser will create `config.yml` in the same directory and then start. Stop it with `Ctrl+C` once the config is generated.
+
+    <Note>
+      If no graphical environment is available, Geyser starts in headless (console) mode automatically. You can force headless mode with the `--nogui` flag:
+
+      ```bash
+      java -jar Geyser-Standalone.jar --nogui
+      ```
+    </Note>
+  </Step>
+
+  <Step title="Configure the remote Java server">
+    Open `config.yml` and point Geyser at your Java Edition server:
+
+    ```yaml config.yml
+    remote:
+      address: your.java.server.address
+      port: 25565
+      auth-type: online  # or offline
+    ```
+
+    Also review the Bedrock listener settings:
+
+    ```yaml config.yml
+    bedrock:
+      address: 0.0.0.0
+      port: 19132
+    ```
+
+    See the [configuration reference](/configuration/config-reference) for a full description of every option.
+  </Step>
+
+  <Step title="Open the Bedrock port on your firewall">
+    Bedrock clients connect over **UDP**. Make sure port `19132` (or whichever port you configured) is open on your firewall and forwarded on your router if applicable.
+
+    <Note>
+      Unlike Java Edition (TCP), Bedrock uses UDP. Many firewalls block UDP by default. Check both your OS firewall and any hosting-panel firewall rules.
+    </Note>
+  </Step>
+
+  <Step title="Start Geyser">
+    Start Geyser again:
+
+    ```bash
+    java -jar Geyser-Standalone.jar
+    ```
+
+    Look for a line in the console similar to:
+
+    ```
+    [Geyser-Standalone] Started Geyser on 0.0.0.0:19132
+    ```
+
+    Bedrock players can now connect to the Geyser host's IP address on port `19132`.
+  </Step>
+</Steps>
+
+## Command-line options
+
+| Flag | Description |
+|------|-------------|
+| `--gui` / `--nogui` | Force or suppress the graphical window |
+| `-c <file>` / `--config <file>` | Use a custom config file path |
+| `--<key>=<value>` | Override any config key at startup (e.g. `--bedrock.port=19133`) |
+
+## Running as a service
+
+For production use, consider running Geyser Standalone as a systemd service (Linux) or a Windows Service so it starts automatically on boot. A minimal systemd unit:
+
+```ini geyser.service
+[Unit]
+Description=Geyser Standalone
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/geyser
+ExecStart=/usr/bin/java -jar Geyser-Standalone.jar --nogui
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/configuration/config-reference">
+    Full description of every Geyser config option.
+  </Card>
+  <Card title="Download Geyser" icon="download" href="https://geysermc.org/download">
+    Get the latest Geyser Standalone build.
+  </Card>
+</CardGroup>

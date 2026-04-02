@@ -1,0 +1,313 @@
+---
+title: "Configuration reference"
+description: "Complete reference for all options in Geyser's config.yml file."
+---
+
+Geyser's configuration file is located at `config.yml` in your Geyser data directory. It is generated automatically on first run. The sections below document every available option.
+
+## Example config structure
+
+```yaml config.yml
+bedrock:
+  address: 0.0.0.0
+  port: 19132
+  clone-remote-port: false
+
+java:
+  address: 127.0.0.1
+  port: 25565
+  auth-type: online
+
+motd:
+  primary-motd: Geyser
+  secondary-motd: Another Geyser server.
+  passthrough-motd: true
+  max-players: 100
+  passthrough-player-counts: true
+  ping-passthrough-interval: 3
+
+gameplay:
+  server-name: Geyser
+  cooldown-type: crosshair
+  command-suggestions: true
+  show-coordinates: true
+  disable-bedrock-scaffolding: false
+  nether-roof-workaround: false
+  emotes-enabled: true
+  block-legacy-codes: true
+  unusable-space-block: minecraft:barrier
+  enable-custom-content: true
+  force-resource-packs: true
+  enable-integrated-pack: true
+  forward-player-ping: false
+  xbox-achievements-enabled: false
+  max-visible-custom-skulls: 128
+  custom-skull-render-distance: 32
+
+default-locale: system
+log-player-ip-addresses: true
+saved-user-logins:
+  - ThisExampleUsernameShouldBeLongEnoughToNeverBeAnXboxUsername
+  - ThisOtherExampleUsernameShouldAlsoBeLongEnough
+pending-authentication-timeout: 120
+notify-on-new-bedrock-update: true
+debug-mode: false
+enable-metrics: true
+
+advanced:
+  cache-images: 0
+  scoreboard-packet-threshold: 20
+  add-team-suggestions: true
+  resource-pack-urls: []
+  floodgate-key-file: key.pem
+  java:
+    use-haproxy-protocol: false
+    use-direct-connection: true
+    disable-compression: true
+  bedrock:
+    broadcast-port: 0
+    compression-level: 6
+    use-haproxy-protocol: false
+    validate-bedrock-login: true
+    mtu: 1400
+```
+
+---
+
+## Network — Bedrock listener
+
+These options control how Geyser listens for incoming Bedrock Edition connections.
+
+<ParamField path="bedrock.address" type="string" default="0.0.0.0">
+  The IP address Geyser binds to when listening for Bedrock connections. Change this only if you want to restrict which network interfaces can receive connections.
+</ParamField>
+
+<ParamField path="bedrock.port" type="int" default="19132">
+  The UDP port Geyser listens on for Bedrock connections. Must be open for UDP traffic. Valid range: 0–65535.
+</ParamField>
+
+<ParamField path="bedrock.clone-remote-port" type="boolean" default="false">
+  When enabled, Geyser uses the same port as the Java server every time it starts. Useful for hosting services that assign a new Java port on each restart.
+
+  <Note>Only available on plugin platforms (Spigot, Paper, BungeeCord, Velocity).</Note>
+</ParamField>
+
+---
+
+## Network — Java server connection
+
+These options configure how Geyser connects to the backend Java server.
+
+<ParamField path="java.address" type="string" default="127.0.0.1">
+  The address of the Java server Geyser connects to. On plugin installations this is typically `127.0.0.1`.
+</ParamField>
+
+<ParamField path="java.port" type="int" default="25565">
+  The port of the Java server. On plugin installations this value is ignored when `advanced.java.use-direct-connection` is enabled.
+</ParamField>
+
+<ParamField path="java.auth-type" type="string" default="online">
+  The authentication mode Bedrock players use when connecting. Accepted values: `online`, `offline`, `floodgate`.
+
+  See [Authentication](/configuration/authentication) for a full explanation of each mode.
+</ParamField>
+
+---
+
+## MOTD
+
+<ParamField path="motd.primary-motd" type="string" default="Geyser">
+  The first line of the MOTD shown to Bedrock clients. Ignored when `passthrough-motd` is `true`.
+</ParamField>
+
+<ParamField path="motd.secondary-motd" type="string" default="Another Geyser server.">
+  The second line of the MOTD shown to Bedrock clients. Ignored when `passthrough-motd` is `true`.
+</ParamField>
+
+<ParamField path="motd.passthrough-motd" type="boolean" default="true">
+  When enabled, Geyser relays the MOTD from the Java server to Bedrock players instead of using the static values above.
+</ParamField>
+
+<ParamField path="motd.max-players" type="int" default="100">
+  The maximum player count shown in the server list. Only applied when `passthrough-player-counts` is `false`.
+</ParamField>
+
+<ParamField path="motd.passthrough-player-counts" type="boolean" default="true">
+  When enabled, the online and maximum player counts are forwarded from the Java server.
+</ParamField>
+
+<ParamField path="motd.ping-passthrough-interval" type="int" default="3">
+  How often, in seconds, Geyser pings the Java server to refresh the MOTD and player count.
+</ParamField>
+
+---
+
+## Gameplay
+
+<ParamField path="gameplay.server-name" type="string" default="Geyser">
+  The server name shown to Bedrock clients in the pause menu and settings menu.
+</ParamField>
+
+<ParamField path="gameplay.cooldown-type" type="string" default="crosshair">
+  Controls the fake attack cooldown indicator sent to Bedrock players (who otherwise use 1.8 combat with no cooldown). Accepted values: `crosshair`, `hotbar`, `disabled`.
+</ParamField>
+
+<ParamField path="gameplay.command-suggestions" type="boolean" default="true">
+  Whether Geyser sends command suggestions to Bedrock clients. Disable this if Bedrock clients freeze when opening the command prompt due to a large number of commands.
+</ParamField>
+
+<ParamField path="gameplay.show-coordinates" type="boolean" default="true">
+  Whether to show the XYZ coordinate overlay to Bedrock players.
+</ParamField>
+
+<ParamField path="gameplay.disable-bedrock-scaffolding" type="boolean" default="false">
+  When enabled, Bedrock players cannot use their scaffolding-style bridging technique.
+</ParamField>
+
+<ParamField path="gameplay.nether-roof-workaround" type="boolean" default="false">
+  Bedrock Edition prevents placing and rendering blocks above Y 127 in the Nether. Enabling this remaps the Nether dimension to the End dimension ID to work around the restriction. The downside is that all Nether biomes share the same red fog instead of biome-specific fog.
+</ParamField>
+
+<ParamField path="gameplay.emotes-enabled" type="boolean" default="true">
+  Whether Bedrock Edition emotes are shown to other Bedrock players.
+</ParamField>
+
+<ParamField path="gameplay.block-legacy-codes" type="boolean" default="true">
+  Whether to strip legacy `§` formatting codes typed by Bedrock players in chat. Bedrock allows typing section signs directly, unlike Java Edition.
+</ParamField>
+
+<ParamField path="gameplay.unusable-space-block" type="string" default="minecraft:barrier">
+  The item used to visually fill unavailable inventory slots (for example, the 2×2 crafting grid in creative mode, or custom inventory UIs). Accepts any valid Bedrock item identifier, including custom items in the format `geyser_custom:<mapping-name>`.
+</ParamField>
+
+<ParamField path="gameplay.enable-custom-content" type="boolean" default="true">
+  Enables Geyser's custom block, item, and skull mapping systems, as well as the ability to add Java-only items to Bedrock. Disable only if using a proxy that does not support the transfer-packet server switching style. Requires a restart to take effect.
+</ParamField>
+
+<ParamField path="gameplay.force-resource-packs" type="boolean" default="true">
+  When enabled, Bedrock players must accept and download all resource packs before connecting. When disabled, players can skip the download and still join.
+</ParamField>
+
+<ParamField path="gameplay.enable-integrated-pack" type="boolean" default="true">
+  Automatically serves Geyser's built-in resource pack to all Bedrock players. This pack is required for certain Geyser features. Enabling this also forces `force-resource-packs` to `true`.
+</ParamField>
+
+<ParamField path="gameplay.forward-player-ping" type="boolean" default="false">
+  Forwards the Bedrock player's real ping to the Java server for more accurate latency reporting. May cause players to time out more frequently.
+</ParamField>
+
+<ParamField path="gameplay.xbox-achievements-enabled" type="boolean" default="false">
+  When enabled, Xbox achievements can be unlocked. Players who type an unknown command receive a message saying cheats are disabled rather than an error, while known commands still function normally.
+</ParamField>
+
+<ParamField path="gameplay.max-visible-custom-skulls" type="int" default="128">
+  The maximum number of custom player skulls rendered around each player. Set to `0` to disable custom skulls entirely, or `-1` to render all skulls regardless of distance.
+</ParamField>
+
+<ParamField path="gameplay.custom-skull-render-distance" type="int" default="32">
+  The radius in blocks around each player within which custom skulls are rendered.
+</ParamField>
+
+---
+
+## Authentication
+
+<ParamField path="saved-user-logins" type="string[]">
+  A list of Bedrock player usernames whose Java Edition account tokens are cached on disk after login. Subsequent logins skip the Microsoft authentication flow. The token file is stored as `saved-refresh-tokens.json` next to `config.yml`. Removing a username from this list deletes its token on the next Geyser startup.
+
+  Only applies when `java.auth-type` is `online`.
+
+  <Warning>Token files grant access to Microsoft accounts. Keep your Geyser data directory secure and only add trusted players to this list.</Warning>
+</ParamField>
+
+<ParamField path="pending-authentication-timeout" type="int" default="120">
+  How many seconds Geyser waits for a player to complete Microsoft account authorization before disconnecting them. Only applies when `java.auth-type` is `online`.
+</ParamField>
+
+---
+
+## General
+
+<ParamField path="default-locale" type="string" default="system">
+  The locale used when Geyser does not have the locale requested by a Bedrock client. Set to `system` to use the server's system language.
+</ParamField>
+
+<ParamField path="log-player-ip-addresses" type="boolean" default="true">
+  Whether player IP addresses are included in server log output.
+</ParamField>
+
+<ParamField path="notify-on-new-bedrock-update" type="boolean" default="true">
+  Whether the console and server operators are alerted when a Geyser update becomes available that supports a newer Bedrock version. Recommended to keep enabled because Bedrock clients auto-update.
+</ParamField>
+
+<ParamField path="debug-mode" type="boolean" default="false">
+  When enabled, verbose debug messages are printed to the console.
+</ParamField>
+
+<ParamField path="enable-metrics" type="boolean" default="true">
+  Enables anonymous usage statistics via [bStats](https://bstats.org/plugin/server-implementation/GeyserMC). Only applicable on standalone installations; plugin platforms use their own bStats integration.
+</ParamField>
+
+---
+
+## Advanced
+
+<ParamField path="advanced.cache-images" type="int" default="0">
+  How many days to cache player skin images to disk. Set to `0` to disable caching.
+</ParamField>
+
+<ParamField path="advanced.scoreboard-packet-threshold" type="int" default="20">
+  The number of scoreboard packets per second at which Geyser throttles scoreboard updates to four per second. High packet rates can otherwise cause significant lag.
+</ParamField>
+
+<ParamField path="advanced.add-team-suggestions" type="boolean" default="true">
+  Whether Geyser includes team names in command tab-completion suggestions. Disable if you have many teams that are unnecessary as suggestions.
+</ParamField>
+
+<ParamField path="advanced.resource-pack-urls" type="string[]">
+  A list of HTTPS URLs pointing to remote resource packs to send to Bedrock clients. See [Resource packs](/configuration/resource-packs) for requirements and delivery details.
+</ParamField>
+
+<ParamField path="advanced.floodgate-key-file" type="string" default="key.pem">
+  Path to the public key file generated by Floodgate. Only required when `java.auth-type` is `floodgate` and Floodgate is not installed as a plugin on the same server. When Floodgate is co-located, the key is picked up automatically.
+</ParamField>
+
+### Advanced — Bedrock listener
+
+<ParamField path="advanced.bedrock.broadcast-port" type="int" default="0">
+  The port advertised to Bedrock clients in the MOTD. Set to `0` to use the value of `bedrock.port`. Only change this if Geyser runs behind a port-forwarding layer.
+</ParamField>
+
+<ParamField path="advanced.bedrock.compression-level" type="int" default="6">
+  Compression level for traffic sent to Bedrock clients (−1 to 9). Higher values reduce bandwidth at the cost of CPU. Set to `−1` to disable compression.
+</ParamField>
+
+<ParamField path="advanced.bedrock.use-haproxy-protocol" type="boolean" default="false">
+  Enables HAProxy PROXY protocol for incoming Bedrock connections. Only enable this when running a UDP reverse proxy in front of Geyser.
+</ParamField>
+
+<ParamField path="advanced.bedrock.validate-bedrock-login" type="boolean" default="true">
+  Whether Geyser authenticates connecting Bedrock players. Disable only when using ProxyPass or WaterdogPE and direct access to this Geyser instance is blocked at the firewall. Disabling this is a security risk on any publicly reachable instance and also breaks all Floodgate functionality.
+</ParamField>
+
+<ParamField path="advanced.bedrock.mtu" type="int" default="1400">
+  The Maximum Transmission Unit size used for Bedrock network packets. The theoretical maximum is 1492, but lower values reduce fragmentation issues.
+</ParamField>
+
+### Advanced — Java connection
+
+<ParamField path="advanced.java.use-haproxy-protocol" type="boolean" default="false">
+  Enables HAProxy PROXY protocol when Geyser connects to the Java server. Only needed when Velocity or BungeeCord has PROXY protocol enabled.
+</ParamField>
+
+<ParamField path="advanced.java.use-direct-connection" type="boolean" default="true">
+  When enabled, Geyser connects to the Java server in-process without a TCP socket. Disable only if a networking plugin conflicts with Geyser. Disabling this increases latency.
+
+  <Note>Only available on plugin platforms.</Note>
+</ParamField>
+
+<ParamField path="advanced.java.disable-compression" type="boolean" default="true">
+  When enabled, Geyser disables Java-side packet compression since packets do not travel over the network when using direct connection. Requires `use-direct-connection` to be `true`.
+
+  <Note>Only available on plugin platforms.</Note>
+</ParamField>

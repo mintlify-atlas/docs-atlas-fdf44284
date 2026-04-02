@@ -1,0 +1,115 @@
+---
+title: "Custom Player Skulls"
+description: "Display custom player head textures for Bedrock players by registering skulls in Geyser's custom-skulls.yml file."
+---
+
+By default, Bedrock Edition cannot render arbitrary player head textures — it only shows a generic Steve head for skulls it does not recognise. Geyser works around this limitation by generating a resource pack at startup that maps registered skull textures to custom Bedrock blocks, making them visible to Bedrock players.
+
+## Prerequisites
+
+Custom skull rendering depends on the `enable-custom-content` gameplay option being enabled (it is enabled by default). When custom content is disabled, skull mappings and the resource pack generation system are also disabled.
+
+```yaml
+gameplay:
+  enable-custom-content: true
+```
+
+<Note>
+  Because Geyser generates a resource pack containing skull textures, Bedrock players will need to download this pack when they first connect (or when new skulls are added). The pack size increases with the number of registered skulls.
+</Note>
+
+## Config options
+
+Two gameplay settings in `config.yml` control custom skull behaviour:
+
+```yaml
+gameplay:
+  # Maximum number of custom skulls shown per player. 0 disables all custom skulls.
+  # -1 renders all custom skulls regardless of distance or count.
+  max-visible-custom-skulls: 128
+
+  # Radius in blocks around a player within which custom skulls are rendered.
+  custom-skull-render-distance: 32
+```
+
+| Option                        | Default | Description                                                                   |
+|-------------------------------|---------|-------------------------------------------------------------------------------|
+| `max-visible-custom-skulls`   | `128`   | Cap on simultaneously rendered custom skulls per player. Lower values improve performance on weak devices. Set to `0` to disable, `-1` for unlimited. |
+| `custom-skull-render-distance`| `32`    | Block radius around the player within which custom skulls are displayed.      |
+
+## The custom-skulls.yml file
+
+Geyser reads skull definitions from `custom-skulls.yml` in its config directory. This file supports four ways to identify a skull texture:
+
+```yaml
+# Java player usernames
+# Skins are fetched from Mojang's API at startup. If the player changes their skin,
+# Bedrock clients must re-download the resource pack.
+player-usernames:
+  - GeyserMC
+  - Notch
+
+# Java player UUIDs
+# Same update behaviour as usernames.
+player-uuids:
+  - 8b8d8e8f-2759-47c6-acb5-5827de8a72b8
+
+# Base64-encoded player profile strings
+# These are the long strings found in the NBT of custom player head items.
+player-profiles:
+  - ewogICJ0aW1lc3RhbXAiIDogMTY1NzMyMjIzOTgzMywKICAicHJvZmlsZUlkIiA6ICJjZGRiZTUy
+    MGQwNDM0YThiYTFjYzlmYzkyZmRlMmJjZiIsCiAgInByb2ZpbGVOYW1lIiA6ICJBbWJlcmljaHUi
+
+# Skin hashes (the path segment from textures.minecraft.net URLs)
+# Most stable identifier — skins do not change, so the pack is not regenerated.
+skin-hashes:
+  - a90790c57e181ed13aded14c47ee2f7c8de3533e017ba957af7bdf9df1bde94f
+```
+
+### Identifier types compared
+
+| Type              | Stability | Notes                                                                           |
+|-------------------|-----------|---------------------------------------------------------------------------------|
+| `player-usernames` | Low       | Resolved via Mojang API; skin changes require a pack re-download.              |
+| `player-uuids`    | Medium    | Resolved via Mojang API; same skin-change caveat applies.                      |
+| `player-profiles` | High      | Embeds the full texture URL; skin is fixed to whatever was in the NBT.         |
+| `skin-hashes`     | Highest   | References a specific texture directly; the pack never needs regenerating.     |
+
+<Tip>
+  Prefer `skin-hashes` or `player-profiles` for decorative builds where the texture should never change. Use `player-usernames` or `player-uuids` when you want the skull to always reflect the player's current skin.
+</Tip>
+
+## GeyserCustomSkullConfiguration structure
+
+The `custom-skulls.yml` is parsed into `GeyserCustomSkullConfiguration`, which exposes four lists:
+
+| Field              | YAML key            | Java accessor                     |
+|--------------------|---------------------|-----------------------------------|
+| Player usernames   | `player-usernames`  | `getPlayerUsernames()`            |
+| Player UUIDs       | `player-uuids`      | `getPlayerUUIDs()`                |
+| Player profiles    | `player-profiles`   | `getPlayerProfiles()`             |
+| Skin hashes        | `skin-hashes`       | `getPlayerSkinHashes()`           |
+
+All four lists default to empty if not specified.
+
+## Adding a skull from a custom head item
+
+To find the profile string for a decorative head (e.g. from a head database plugin):
+
+1. Hold the head item.
+2. Run `/data get entity @s SelectedItem` in-game, or inspect the item NBT with a tool like NBTExplorer.
+3. Look for the `SkullOwner > Properties > textures > Value` field.
+4. Copy that Base64 string into the `player-profiles` list in `custom-skulls.yml`.
+5. Restart Geyser (the resource pack is regenerated on startup).
+
+<Warning>
+  Bedrock clients must re-download the generated resource pack every time `custom-skulls.yml` changes. For servers with many players, adding skulls frequently can be disruptive. Batch additions together where possible.
+</Warning>
+
+## Performance considerations
+
+Each registered skull adds texture data to the generated resource pack, increasing its download size. Additionally, rendering many skulls simultaneously is more demanding on lower-end devices.
+
+- Keep `max-visible-custom-skulls` at a value appropriate for your audience.
+- Use `custom-skull-render-distance` to limit how far away skulls are rendered.
+- Setting `max-visible-custom-skulls: 0` disables custom skull rendering entirely if performance is a concern.

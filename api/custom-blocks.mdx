@@ -1,0 +1,268 @@
+---
+title: "Custom Blocks"
+description: "Register custom Bedrock blocks with full component support, permutations, and non-vanilla block overrides."
+---
+
+Geyser can show custom Bedrock blocks to Bedrock players while mapping them to Java block states. Custom blocks must be registered once at startup during `GeyserDefineCustomBlocksEvent`.
+
+<Note>
+  Custom block registration requires the `enable-custom-content` setting to be enabled in the Geyser config (enabled by default). This event will not be called if `enable-custom-content` is `false`.
+</Note>
+
+---
+
+## Registering blocks: event hook
+
+```java
+import org.geysermc.event.subscribe.Subscribe;
+import org.geysermc.geyser.api.event.lifecycle.GeyserDefineCustomBlocksEvent;
+
+public class MyExtension implements Extension {
+
+    @Subscribe
+    public void onDefineCustomBlocks(GeyserDefineCustomBlocksEvent event) {
+        // Register custom blocks here
+    }
+}
+```
+
+---
+
+## CustomBlockData
+
+`CustomBlockData` (in `org.geysermc.geyser.api.block.custom`) describes a custom Bedrock block. Build it with `CustomBlockData.builder()`.
+
+### Minimal example
+
+```java
+import org.geysermc.geyser.api.block.custom.CustomBlockData;
+import org.geysermc.geyser.api.block.custom.component.CustomBlockComponents;
+
+CustomBlockComponents components = CustomBlockComponents.builder()
+    .displayName("My Custom Block")
+    .destructibleByMining(2.0f)
+    .friction(0.6f)
+    .lightEmission(7)
+    .build();
+
+CustomBlockData block = CustomBlockData.builder()
+    .name("my_custom_block")
+    .includedInCreativeInventory(true)
+    .components(components)
+    .build();
+
+event.register(block);
+```
+
+### Overriding a Java block state
+
+```java
+// Override a specific Java block state with your custom block's state
+event.registerOverride("minecraft:stone[variant=granite]", block.defaultBlockState());
+
+// Override based on a Java item identifier
+event.registerItemOverride("minecraft:stone", block);
+```
+
+Java block state identifiers are listed [in the Geyser mappings](https://raw.githubusercontent.com/GeyserMC/mappings/master/blocks.json).
+
+---
+
+## CustomBlockData fields
+
+<ResponseField name="name()" type="String">
+  The name portion of the custom block identifier.
+</ResponseField>
+<ResponseField name="identifier()" type="String">
+  The full Bedrock block identifier.
+</ResponseField>
+<ResponseField name="includedInCreativeInventory()" type="boolean">
+  Whether the block appears in the Bedrock creative inventory.
+</ResponseField>
+<ResponseField name="creativeCategory()" type="@Nullable CreativeCategory">
+  The creative tab for this block.
+</ResponseField>
+<ResponseField name="creativeGroup()" type="@Nullable String">
+  The creative group name for this block.
+</ResponseField>
+<ResponseField name="components()" type="@Nullable CustomBlockComponents">
+  The block's Bedrock components.
+</ResponseField>
+<ResponseField name="properties()" type="Map&lt;String, CustomBlockProperty&lt;?&gt;&gt;">
+  The block's custom properties (used for permutations).
+</ResponseField>
+<ResponseField name="permutations()" type="List&lt;CustomBlockPermutation&gt;">
+  The list of permutations (state-based component overrides).
+</ResponseField>
+<ResponseField name="defaultBlockState()" type="CustomBlockState">
+  The default block state for this block.
+</ResponseField>
+
+---
+
+## CustomBlockComponents
+
+`CustomBlockComponents` defines the Bedrock-side behavior of the block. Build it with `CustomBlockComponents.builder()`.
+
+### Builder methods
+
+```java
+CustomBlockComponents components = CustomBlockComponents.builder()
+    .displayName("My Block")                          // minecraft:display_name
+    .geometry(geometryComponent)                      // minecraft:geometry
+    .selectionBox(selectionBox)                       // minecraft:selection_box
+    .collisionBoxes(collisionBox1, collisionBox2)     // minecraft:collision_box (up to 16)
+    .materialInstance("*", materialInstance)          // minecraft:material_instances
+    .destructibleByMining(3.0f)                       // minecraft:destructible_by_mining
+    .friction(0.4f)                                   // minecraft:friction
+    .lightEmission(15)                                // minecraft:light_emission
+    .lightDampening(0)                                // minecraft:light_dampening
+    .transformation(transformationComponent)          // minecraft:transformation
+    .placeAir(false)                                  // place air instead of the block
+    .tags(Set.of("my_tag", "another_tag"))            // tag:some_tag
+    .build();
+```
+
+### Component reference
+
+<ResponseField name="displayName()" type="@Nullable String">
+  The display name of the block. Corresponds to `minecraft:display_name`.
+</ResponseField>
+<ResponseField name="geometry()" type="@Nullable GeometryComponent">
+  The block geometry. Corresponds to `minecraft:geometry`. Use `minecraft:geometry.full_block` for a full cube.
+</ResponseField>
+<ResponseField name="selectionBox()" type="@Nullable BoxComponent">
+  The selection box (one box only, unlike Java). Corresponds to `minecraft:selection_box`.
+</ResponseField>
+<ResponseField name="collisionBoxes()" type="Set&lt;BoxComponent&gt;">
+  The collision boxes (up to 16). Corresponds to `minecraft:collision_box`.
+</ResponseField>
+<ResponseField name="materialInstances()" type="Map&lt;String, MaterialInstance&gt;">
+  Texture/render method per face. Corresponds to `minecraft:material_instances`.
+</ResponseField>
+<ResponseField name="placementFilter()" type="@Nullable List&lt;PlacementConditions&gt;">
+  Placement rules. Corresponds to `minecraft:placement_filter`.
+</ResponseField>
+<ResponseField name="destructibleByMining()" type="@Nullable Float">
+  Mining hardness. Corresponds to `minecraft:destructible_by_mining`.
+</ResponseField>
+<ResponseField name="friction()" type="@Nullable Float">
+  Block friction. Corresponds to `minecraft:friction`.
+</ResponseField>
+<ResponseField name="lightEmission()" type="@Nullable Integer">
+  Light level emitted (0–15). Corresponds to `minecraft:light_emission`.
+</ResponseField>
+<ResponseField name="lightDampening()" type="@Nullable Integer">
+  Light level absorbed. Corresponds to `minecraft:light_dampening`.
+</ResponseField>
+<ResponseField name="transformation()" type="@Nullable TransformationComponent">
+  Block geometry transformation. Corresponds to `minecraft:transformation`.
+</ResponseField>
+<ResponseField name="placeAir()" type="boolean">
+  If true, only air is placed instead of the block.
+</ResponseField>
+<ResponseField name="tags()" type="Set&lt;String&gt;">
+  Block tags accessible in Molang as `tag:some_tag`.
+</ResponseField>
+
+---
+
+## Block permutations
+
+Permutations let a single block have different components per block state. Define custom properties first, then attach permutations:
+
+```java
+import org.geysermc.geyser.api.block.custom.CustomBlockPermutation;
+
+// A block with a boolean property "lit" that changes light emission
+CustomBlockData block = CustomBlockData.builder()
+    .name("my_lamp")
+    .booleanProperty("my_pack:lit")
+    .permutations(List.of(
+        new CustomBlockPermutation(
+            litComponents,    // CustomBlockComponents for the lit state
+            "q.block_property('my_pack:lit') == true"
+        )
+    ))
+    .components(defaultComponents) // components used when no permutation matches
+    .build();
+```
+
+### Adding properties
+
+```java
+builder.booleanProperty("my_pack:is_powered")
+builder.intProperty("my_pack:stage", List.of(0, 1, 2, 3))
+builder.stringProperty("my_pack:variant", List.of("oak", "spruce", "birch"))
+```
+
+### Accessing block states
+
+```java
+CustomBlockState defaultState = block.defaultBlockState();
+
+// Build a specific state
+CustomBlockState litState = block.blockStateBuilder()
+    // set property values on the builder
+    .build();
+```
+
+---
+
+## Non-vanilla custom blocks
+
+`NonVanillaCustomBlockData` describes a completely custom block with **no Java counterpart**. It extends `CustomBlockData` and adds a `namespace()` field:
+
+```java
+import org.geysermc.geyser.api.block.custom.NonVanillaCustomBlockData;
+import org.geysermc.geyser.api.block.custom.nonvanilla.JavaBlockState;
+
+NonVanillaCustomBlockData block = NonVanillaCustomBlockData.builder()
+    .namespace("my_mod")
+    .name("my_custom_ore")
+    .includedInCreativeInventory(true)
+    .components(components)
+    .build();
+
+// You must also provide a JavaBlockState for non-vanilla blocks
+JavaBlockState javaState = /* create JavaBlockState */;
+event.registerOverride(javaState, block.defaultBlockState());
+```
+
+<ResponseField name="namespace()" type="String">
+  The namespace used for the Bedrock block identifier (e.g. `my_mod`).
+</ResponseField>
+
+---
+
+## Complete example
+
+```java
+@Subscribe
+public void onDefineCustomBlocks(GeyserDefineCustomBlocksEvent event) {
+    // Build components
+    CustomBlockComponents components = CustomBlockComponents.builder()
+        .displayName("Glowing Ore")
+        .destructibleByMining(4.5f)
+        .friction(0.6f)
+        .lightEmission(8)
+        .tags(Set.of("ore"))
+        .build();
+
+    // Build the block
+    CustomBlockData glowingOre = CustomBlockData.builder()
+        .name("glowing_ore")
+        .includedInCreativeInventory(true)
+        .components(components)
+        .build();
+
+    // Register the block
+    event.register(glowingOre);
+
+    // Override a Java block state with it
+    event.registerOverride(
+        "minecraft:iron_ore",
+        glowingOre.defaultBlockState()
+    );
+}
+```

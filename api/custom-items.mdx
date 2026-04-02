@@ -1,0 +1,326 @@
+---
+title: "Custom Items"
+description: "Register custom Bedrock items that appear when Java players hold specific items or meet specific predicates."
+---
+
+Geyser can display custom Bedrock items to Bedrock players by mapping Java item stacks to a Bedrock item definition. The API provides two approaches:
+
+- **v2 API (`CustomItemDefinition`)** — the current, recommended API based on Java item model definitions and predicates
+- **v1 API (`CustomItemData`)** — deprecated legacy API, still supported for backwards compatibility
+
+Custom items must be registered during `GeyserDefineCustomItemsEvent`, which fires once at startup.
+
+<Note>
+  Custom item registration requires the `enable-custom-content` setting to be enabled in the Geyser config (it is enabled by default). This event will not be called if `enable-custom-content` is `false`.
+</Note>
+
+---
+
+## Registering items: event hook
+
+```java
+import org.geysermc.event.subscribe.Subscribe;
+import org.geysermc.geyser.api.event.lifecycle.GeyserDefineCustomItemsEvent;
+
+public class MyExtension implements Extension {
+
+    @Subscribe
+    public void onDefineCustomItems(GeyserDefineCustomItemsEvent event) {
+        // Register your items here
+    }
+}
+```
+
+---
+
+<Tabs>
+  <Tab title="v2 API (CustomItemDefinition)">
+
+## CustomItemDefinition (v2 — recommended)
+
+`CustomItemDefinition` maps a Bedrock item identifier to a Java item model. A definition is matched when:
+
+1. The Java item matches the vanilla item the definition is registered for
+2. The item's active model matches `definition.model()`
+3. All predicates (if any) pass
+
+### Basic usage
+
+```java
+import org.geysermc.geyser.api.item.custom.v2.CustomItemDefinition;
+import org.geysermc.geyser.api.util.Identifier;
+
+// Register a custom item for the "minecraft:diamond_sword" Java item
+// when its model is "my_pack:cool_sword"
+Identifier bedrockId = new Identifier("my_pack", "cool_sword");
+Identifier model    = new Identifier("my_pack", "cool_sword");
+
+CustomItemDefinition definition = CustomItemDefinition
+    .builder(bedrockId, model)
+    .displayName("Cool Sword")
+    .build();
+
+event.register(new Identifier("minecraft", "diamond_sword"), definition);
+```
+
+### Adding predicates
+
+Predicates allow fine-grained control over when a definition is selected. Multiple predicates are evaluated using AND logic by default.
+
+```java
+import org.geysermc.geyser.api.predicate.item.ItemConditionPredicate;
+import org.geysermc.geyser.api.predicate.item.ItemRangeDispatchPredicate;
+import org.geysermc.geyser.api.predicate.PredicateStrategy;
+
+CustomItemDefinition def = CustomItemDefinition
+    .builder(bedrockId, model)
+    .predicate(/* some predicate */)
+    .predicateStrategy(PredicateStrategy.AND) // default
+    .priority(10) // higher priority evaluated first
+    .build();
+```
+
+### Setting Bedrock options
+
+Bedrock-specific item properties (icon, offhand, etc.) are set via `CustomItemBedrockOptions`:
+
+```java
+import org.geysermc.geyser.api.item.custom.v2.CustomItemBedrockOptions;
+
+CustomItemDefinition def = CustomItemDefinition
+    .builder(bedrockId, model)
+    .bedrockOptions(
+        CustomItemBedrockOptions.builder()
+            // builder methods set icon, allow offhand, etc.
+    )
+    .build();
+```
+
+### Setting data components
+
+Components describe Java item behaviors that the custom item must match on the server. Only specify components that are **always** present server-side:
+
+```java
+import org.geysermc.geyser.api.item.custom.v2.component.java.JavaItemDataComponents;
+
+CustomItemDefinition def = CustomItemDefinition
+    .builder(bedrockId, model)
+    .component(JavaItemDataComponents.MAX_STACK_SIZE, 1)
+    .component(JavaItemDataComponents.MAX_DAMAGE, 500)
+    .build();
+```
+
+Supported components include `CONSUMABLE`, `EQUIPPABLE`, `FOOD`, `MAX_DAMAGE`, `MAX_STACK_SIZE`, `USE_COOLDOWN`, `ENCHANTABLE`, `TOOL`, `REPAIRABLE`, `ENCHANTMENT_GLINT_OVERRIDE`, `ATTACK_RANGE`, `PIERCING_WEAPON`, `USE_EFFECTS`, and `KINETIC_WEAPON`.
+
+To remove a vanilla component from the custom item (must match server-side behavior):
+
+```java
+CustomItemDefinition def = CustomItemDefinition
+    .builder(bedrockId, model)
+    .removeComponent(JavaItemDataComponents.MAX_DAMAGE)
+    .build();
+```
+
+### Priority and ordering
+
+For a given Java item model, Geyser evaluates definitions in this order:
+
+1. Higher `priority()` values first
+2. Definitions with a similar `ItemRangeDispatchPredicate` — higher threshold first
+3. Most predicates to fewest
+
+### CustomItemDefinition fields
+
+<ResponseField name="bedrockIdentifier()" type="Identifier">
+  The Bedrock item identifier. Cannot be in the `minecraft` namespace.
+</ResponseField>
+<ResponseField name="displayName()" type="String">
+  Display name shown to Bedrock clients. Defaults to the Bedrock identifier if not set.
+</ResponseField>
+<ResponseField name="model()" type="Identifier">
+  The Java item model this definition matches.
+</ResponseField>
+<ResponseField name="icon()" type="String">
+  The Bedrock icon texture name. Defaults to the Bedrock identifier with `:` → `.` and `/` → `_`.
+</ResponseField>
+<ResponseField name="predicates()" type="List&lt;MinecraftPredicate&gt;">
+  The list of predicates that must match for this definition to be used.
+</ResponseField>
+<ResponseField name="predicateStrategy()" type="PredicateStrategy">
+  `AND` (all must match) or `OR` (any must match). Defaults to `AND`.
+</ResponseField>
+<ResponseField name="priority()" type="int">
+  Priority for definition matching. Higher values are checked first. Defaults to 0.
+</ResponseField>
+<ResponseField name="bedrockOptions()" type="CustomItemBedrockOptions">
+  Bedrock-specific item options (icon, offhand, etc.).
+</ResponseField>
+<ResponseField name="components()" type="ItemDataComponentMap">
+  Data component patch for the item.
+</ResponseField>
+<ResponseField name="removedComponents()" type="List&lt;Identifier&gt;">
+  Vanilla components removed from this custom item.
+</ResponseField>
+
+  </Tab>
+  <Tab title="v1 API (CustomItemData — deprecated)">
+
+## CustomItemData (v1 — deprecated)
+
+<Warning>
+  `CustomItemData` and `NonVanillaCustomItemData` are deprecated. Use `CustomItemDefinition` for new code.
+</Warning>
+
+The v1 API uses `CustomItemOptions` (NBT/damage predicates) to decide when to display the custom item. It is still supported via automatic conversion to `CustomItemDefinition` internally.
+
+### Building a custom item (v1)
+
+```java
+import org.geysermc.geyser.api.item.custom.CustomItemData;
+import org.geysermc.geyser.api.item.custom.CustomItemOptions;
+
+CustomItemData item = CustomItemData.builder()
+    .name("my_custom_sword")
+    .displayName("My Custom Sword")
+    .icon("my_custom_sword")
+    .allowOffhand(true)
+    .displayHandheld(true)
+    .customItemOptions(myOptions) // CustomItemOptions with predicates
+    .build();
+
+event.register("minecraft:diamond_sword", item);
+```
+
+### CustomItemData fields
+
+<ResponseField name="name()" type="String">
+  The item's internal name.
+</ResponseField>
+<ResponseField name="displayName()" type="String">
+  The display name shown to players. Defaults to `name()`.
+</ResponseField>
+<ResponseField name="icon()" type="String">
+  The Bedrock texture/icon name. Defaults to `name()`.
+</ResponseField>
+<ResponseField name="allowOffhand()" type="boolean">
+  Whether the item can be placed in the offhand slot.
+</ResponseField>
+<ResponseField name="displayHandheld()" type="boolean">
+  Whether to render the item as handheld (like a tool/sword).
+</ResponseField>
+<ResponseField name="creativeCategory()" type="OptionalInt">
+  The creative tab ID, if set.
+</ResponseField>
+<ResponseField name="creativeGroup()" type="@Nullable String">
+  The creative group name, if set.
+</ResponseField>
+<ResponseField name="tags()" type="Set&lt;String&gt;">
+  Molang-accessible tags (e.g. `tag:my_tag`).
+</ResponseField>
+<ResponseField name="customItemOptions()" type="CustomItemOptions">
+  The item predicates (damage, NBT, etc.) that determine when to show this item.
+</ResponseField>
+
+  </Tab>
+</Tabs>
+
+---
+
+## Non-vanilla custom items
+
+Non-vanilla custom items have **no Java counterpart** — they are typically added by mods. Use `NonVanillaCustomItemDefinition` (v2) or the deprecated `NonVanillaCustomItemData` (v1).
+
+<Warning>
+  `NonVanillaCustomItemData` is deprecated. Prefer `NonVanillaCustomItemDefinition` for new code.
+</Warning>
+
+```java
+import org.geysermc.geyser.api.item.custom.NonVanillaCustomItemData;
+
+NonVanillaCustomItemData item = NonVanillaCustomItemData.builder()
+    .name("my_mod_item")
+    .identifier("mymod:my_item")      // Java item identifier from the mod
+    .displayName("My Mod Item")
+    .icon("my_mod_item")
+    .stackSize(64)
+    .maxDamage(0)
+    .attackDamage(5)
+    .toolType("sword")
+    .edible(false)
+    .isHat(false)
+    .isFoil(false)
+    .isChargeable(false)
+    .displayHandheld(true)
+    .build();
+
+event.register(item);
+```
+
+### NonVanillaCustomItemData fields
+
+<ResponseField name="identifier()" type="String">
+  The Java item identifier from the mod (e.g. `mymod:my_item`).
+</ResponseField>
+<ResponseField name="javaId()" type="int">
+  The Java item numeric ID.
+</ResponseField>
+<ResponseField name="stackSize()" type="int">
+  Stack size for the item.
+</ResponseField>
+<ResponseField name="maxDamage()" type="int">
+  Maximum durability.
+</ResponseField>
+<ResponseField name="attackDamage()" type="int">
+  Visual attack damage (tools only).
+</ResponseField>
+<ResponseField name="toolType()" type="@Nullable String">
+  Tool type string (e.g. `"sword"`, `"pickaxe"`).
+</ResponseField>
+<ResponseField name="armorType()" type="@Nullable String">
+  Armor type string (e.g. `"helmet"`).
+</ResponseField>
+<ResponseField name="protectionValue()" type="int">
+  Armor protection value.
+</ResponseField>
+<ResponseField name="translationString()" type="@Nullable String">
+  Translation string for the item's name.
+</ResponseField>
+<ResponseField name="isHat()" type="boolean">
+  Whether the item renders on the player's head.
+</ResponseField>
+<ResponseField name="isFoil()" type="boolean">
+  Whether the item has an enchantment glint effect.
+</ResponseField>
+<ResponseField name="isEdible()" type="boolean">
+  Whether the item is edible.
+</ResponseField>
+<ResponseField name="canAlwaysEat()" type="boolean">
+  Whether the item can be eaten even when hunger is full.
+</ResponseField>
+<ResponseField name="isChargeable()" type="boolean">
+  Whether the item acts like a chargeable item (bow-like).
+</ResponseField>
+<ResponseField name="block()" type="String">
+  The block this item places, if any.
+</ResponseField>
+
+---
+
+## Complete v2 registration example
+
+```java
+@Subscribe
+public void onDefineCustomItems(GeyserDefineCustomItemsEvent event) {
+    // A custom sword skin triggered by item model "my_pack:custom_sword"
+    Identifier bedrockId = new Identifier("my_pack", "custom_sword");
+    Identifier model     = new Identifier("my_pack", "custom_sword");
+
+    CustomItemDefinition definition = CustomItemDefinition
+        .builder(bedrockId, model)
+        .displayName("Custom Sword")
+        .priority(5)
+        .build();
+
+    event.register(new Identifier("minecraft", "diamond_sword"), definition);
+}
+```

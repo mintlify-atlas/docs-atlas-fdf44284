@@ -1,0 +1,127 @@
+---
+title: "Authentication"
+description: "Configure how Bedrock players authenticate when connecting through Geyser to a Java server."
+---
+
+Geyser supports three authentication modes, controlled by the `java.auth-type` option in `config.yml`. The mode determines how Bedrock players' identities are verified against the backend Java server.
+
+```yaml config.yml
+java:
+  auth-type: online  # online | offline | floodgate
+```
+
+---
+
+## Authentication modes
+
+<Tabs>
+  <Tab title="Online">
+    Bedrock players authenticate with a Microsoft account that has a Java Edition licence. This is the default and recommended mode for servers that require Java Edition accounts.
+
+    When a Bedrock player connects, Geyser opens a browser-based Microsoft authentication flow:
+
+    <Steps>
+      <Step title="Player connects">
+        The Bedrock client connects to Geyser. Geyser sends a message with a Microsoft device-code URL and a short code.
+      </Step>
+      <Step title="Player authorizes">
+        The player opens the URL in a browser, signs in to their Microsoft account, and enters the code. They have `pending-authentication-timeout` seconds (default: 120) to complete this step. They can disconnect from the server during this time and reconnect once done.
+      </Step>
+      <Step title="Token issued">
+        Geyser receives an OAuth token from Microsoft and uses it to authenticate the player against the Java server as a full Java Edition account.
+      </Step>
+    </Steps>
+
+    ### Saving logins
+
+    You can cache authentication tokens for specific Bedrock players so they do not need to re-authorize on every connection. Add their Bedrock (Xbox) usernames to `saved-user-logins` in `config.yml`:
+
+    ```yaml config.yml
+    saved-user-logins:
+      - BobTheBuilder
+      - StevePlayer123
+    ```
+
+    Tokens are stored in `saved-refresh-tokens.json` in the same directory as `config.yml`. Removing a username from the list causes its token to be deleted on the next Geyser startup.
+
+    <Warning>
+      Token files grant access to the associated Microsoft accounts. Secure your Geyser data directory and only add players you trust.
+    </Warning>
+
+    ### Pending authentication timeout
+
+    ```yaml config.yml
+    pending-authentication-timeout: 120
+    ```
+
+    This controls how many seconds Geyser waits for a player to complete the Microsoft authorization flow. If the player does not authorize within this window, they are disconnected. The player may reconnect at any time to try again.
+  </Tab>
+
+  <Tab title="Offline">
+    In offline mode, no authentication is performed. Bedrock players connect using their Xbox username as their in-game name without any Java Edition account verification.
+
+    ```yaml config.yml
+    java:
+      auth-type: offline
+    ```
+
+    This mode is suitable only when the backend Java server itself runs in offline mode (i.e., `online-mode=false` in `server.properties`).
+
+    <Warning>
+      Offline mode allows anyone to connect using any username, including impersonating other players. Never use offline mode on a publicly accessible server unless you have additional access controls in place. Running an online-mode Java server with Geyser in offline mode is not supported and will result in authentication errors.
+    </Warning>
+  </Tab>
+
+  <Tab title="Floodgate">
+    Floodgate is a plugin that allows Bedrock players to join an online-mode Java server without a Java Edition account. Bedrock players authenticate only with their Xbox account; no Java Edition licence is required.
+
+    ```yaml config.yml
+    java:
+      auth-type: floodgate
+    ```
+
+    Geyser communicates with the Floodgate plugin using an encrypted key pair. The Floodgate plugin must be installed on the same server or proxy as the Java server.
+
+    <Note>
+      Setting `auth-type` to `floodgate` tells Geyser to attempt Floodgate-style authentication. The Floodgate plugin still needs to be installed separately. See the [Floodgate guide](/guides/floodgate) for full setup instructions.
+    </Note>
+
+    ### Key file
+
+    Geyser and Floodgate share a public key for encryption. When Floodgate is installed as a plugin on the same server as Geyser, the key is detected automatically. For remote or split deployments, point Geyser to the key file manually:
+
+    ```yaml config.yml
+    advanced:
+      floodgate-key-file: /path/to/key.pem
+    ```
+
+    The default value `key.pem` resolves relative to the Geyser data directory.
+
+    ### Java players on a Floodgate server
+
+    When `auth-type` is `floodgate`, Java players can still connect directly to the Java server as normal. Only Bedrock players connecting through Geyser are affected by this setting.
+  </Tab>
+</Tabs>
+
+---
+
+## Choosing an auth mode
+
+| Scenario | Recommended mode |
+|---|---|
+| Public server requiring Java Edition accounts | `online` |
+| Private or LAN server, no account verification needed | `offline` |
+| Server open to Bedrock-only (Xbox) players | `floodgate` |
+
+---
+
+## Related options
+
+<Columns cols={2}>
+  <Card title="Configuration reference" icon="file-code" href="/configuration/config-reference">
+    Full documentation for all `config.yml` options including `auth-type`, `saved-user-logins`, and `pending-authentication-timeout`.
+  </Card>
+  <Card title="Floodgate guide" icon="droplet" href="/guides/floodgate">
+    Step-by-step setup instructions for the Floodgate plugin.
+  </Card>
+</Columns>

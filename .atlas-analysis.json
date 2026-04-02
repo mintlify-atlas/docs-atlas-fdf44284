@@ -1,28 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Geyser",
+  "projectType": "framework",
+  "projectName": "Geyser",
+  "projectDescription": "A proxy/bridge that allows Minecraft: Bedrock Edition players to join Minecraft: Java Edition servers seamlessly.",
   "theme": "aspen",
-  "colors": {
-    "primary": "#54231c",
-    "light": "#69a1a6",
-    "dark": "#d2d3d0"
-  },
-  "favicon": "https://media.brand.dev/53a49e17-9310-4101-8a8c-3c5f675c3441.png",
-  "logo": {
-    "light": "https://media.brand.dev/10f186b5-2bb0-491e-a8d1-bc634c3e9757.svg",
-    "dark": "https://media.brand.dev/10f186b5-2bb0-491e-a8d1-bc634c3e9757.svg"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/GeyserMC/Geyser"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/GeyserMC/Geyser"
-    }
-  },
+  "primaryColor": "#54231c",
+  "lightColor": "#69a1a6",
+  "darkColor": "#d2d3d0",
   "navigation": {
     "tabs": [
       {
@@ -89,5 +72,35 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Bidirectional packet translation between Bedrock and Java protocols",
+    "Multi-platform support: Spigot, BungeeCord, Velocity, Fabric, NeoForge, Standalone, ViaProxy",
+    "Extension/plugin API with event bus for custom integrations",
+    "Custom item and block definitions for Bedrock clients",
+    "Resource pack support with URL-based delivery",
+    "Online and offline authentication mode support",
+    "Camera API for controlling Bedrock client perspective",
+    "Floodgate integration for cross-platform account handling"
+  ],
+  "publicApiSurface": [
+    "GeyserApi.api()",
+    "GeyserApi.connectionByUuid(UUID)",
+    "GeyserApi.onlineConnections()",
+    "GeyserApi.extensionManager()",
+    "GeyserApi.eventBus()",
+    "GeyserApi.bedrockListener()",
+    "GeyserApi.defaultRemoteServer()",
+    "Extension (interface)",
+    "ExtensionManager",
+    "EventBus<EventRegistrar>",
+    "GeyserConnection",
+    "CustomItemData / CustomItemDefinition",
+    "CustomBlockData / NonVanillaCustomBlockData",
+    "ResourcePack / PackCodec",
+    "CameraData (bedrock camera control)",
+    "SessionJoinEvent / SessionDisconnectEvent / SessionLoginEvent",
+    "ConnectionRequestEvent / GeyserBedrockPingEvent",
+    "Command / CommandSource / CommandExecutor"
+  ]
 }

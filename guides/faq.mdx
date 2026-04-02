@@ -1,0 +1,119 @@
+---
+title: "Frequently Asked Questions"
+description: "Answers to common questions about setting up and running Geyser."
+---
+
+<AccordionGroup>
+  <Accordion title="Do I need to modify my Java server to use Geyser?">
+    No. Geyser works by translating Bedrock packets to the standard Java protocol. Your Java server has no knowledge of Geyser and requires no modifications, plugins, or configuration changes.
+
+    You install Geyser either as a plugin on your Java server (Spigot, Paper, Fabric, etc.) or as a standalone proxy in front of it. Either way, the Java server itself is untouched.
+  </Accordion>
+
+  <Accordion title="Can Bedrock players use Java mods?">
+    No. Geyser only translates the vanilla Java protocol. Java mods (Forge, Fabric, NeoForge, etc.) add custom packets, blocks, items, and mechanics that Bedrock clients have no knowledge of.
+
+    Modded blocks and items will appear as unknown or use fallback mappings. Mod-specific GUIs and interactions will not work. If your server relies heavily on mods, Bedrock players will experience a degraded experience for mod-dependent content.
+  </Accordion>
+
+  <Accordion title="Why can't Bedrock players connect?">
+    Common causes:
+
+    - **UDP port not open.** Bedrock Edition uses UDP. Make sure the Geyser port (default `19132`) allows **UDP** traffic in your firewall and any port forwarding rules. Java uses TCP — they are different protocols.
+    - **Wrong address or port.** Bedrock players must connect to the Geyser address and UDP port, not the Java TCP port.
+    - **Geyser not started.** Check your server console for Geyser startup messages and any errors.
+    - **Bedrock version mismatch.** Geyser supports specific Bedrock versions. Check the [README](https://github.com/GeyserMC/Geyser) for the currently supported Bedrock version range.
+    - **Floodgate misconfiguration.** If `auth-type` is set to `floodgate` but Floodgate is not installed or the key is missing/mismatched, connections will fail.
+  </Accordion>
+
+  <Accordion title="Does Geyser work with BungeeCord or Velocity?">
+    Yes. Geyser provides dedicated plugin versions for both BungeeCord and Velocity. Install Geyser on the proxy, not on individual backend servers.
+
+    If you are also using Floodgate, install it on both the proxy **and every backend server**, and ensure all instances share the same `key.pem` file. See the [Floodgate Integration](/guides/floodgate) guide for details.
+  </Accordion>
+
+  <Accordion title="What ports do I need to open?">
+    - **Java players** connect on your Java TCP port (default `25565`).
+    - **Bedrock players** connect on Geyser's UDP port (default `19132`).
+
+    You must open both ports in your firewall. Importantly, the Bedrock port must allow **UDP** traffic, not just TCP.
+
+    If you are using a hosting provider, check their control panel for UDP port configuration — some providers require explicit UDP port rules separate from TCP rules.
+  </Accordion>
+
+  <Accordion title="Can I use the same port for Java and Bedrock?">
+    Yes. Geyser can listen on port `25565` for Bedrock connections (UDP) at the same time Java uses port `25565` for Java connections (TCP). Because Java uses TCP and Bedrock uses UDP, they do not conflict on the same port number.
+
+    To do this, set Geyser's Bedrock port to `25565` in `config.yml`:
+
+    ```yaml
+    bedrock:
+      address: 0.0.0.0
+      port: 25565
+    ```
+
+    Bedrock players then connect to `your.server.address` without specifying a custom port, matching the Java connection experience.
+  </Accordion>
+
+  <Accordion title="Does Geyser support cracked or offline-mode servers?">
+    Yes, by setting `auth-type` to `offline` in Geyser's config. In this mode, no authentication is performed for Bedrock players.
+
+    ```yaml
+    remote:
+      auth-type: offline
+    ```
+
+    <Warning>
+      Offline mode is only appropriate for servers that have already disabled Java Edition authentication (`online-mode: false` in `server.properties`). Running Geyser in offline mode on an online-mode server creates a security risk, as anyone could spoof a Bedrock username.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Why do Bedrock players see missing textures?">
+    Common reasons:
+
+    - **Java resource packs.** Java server resource packs are not automatically forwarded to Bedrock clients. Geyser includes an integrated resource pack for its own mappings, but custom Java packs require separate handling.
+    - **Custom skulls not registered.** Player head textures that have not been added to `custom-skulls.yml` will appear as a generic Steve head. See the [Custom Player Skulls](/guides/custom-skulls) guide.
+    - **Custom items or blocks.** Items and blocks added by Java mods or custom data packs may not have Bedrock equivalents and will fall back to a placeholder.
+    - **`enable-custom-content` disabled.** If this option is `false` in `config.yml`, Geyser's block, item, and skull mapping systems are all disabled.
+  </Accordion>
+
+  <Accordion title="What's the difference between Geyser and Floodgate?">
+    They solve different problems and are often used together:
+
+    | | Geyser | Floodgate |
+    |---|---|---|
+    | **Purpose** | Translates Bedrock protocol to Java protocol so Bedrock players can connect to Java servers. | Lets Bedrock players authenticate with their Xbox account instead of requiring a Java Edition account. |
+    | **Required** | Yes, to allow Bedrock connections at all. | No, but needed if you want Bedrock players who don't own Java Edition to join an online-mode server. |
+    | **Installs on** | Proxy or Java server. | Backend server (and proxy if using a proxy network). |
+
+    In short: Geyser handles the protocol translation, Floodgate handles the authentication. A server running only Geyser (with `auth-type: online`) still requires Bedrock players to have a Java Edition account.
+  </Accordion>
+
+  <Accordion title="How do I update Geyser?">
+    <Steps>
+      <Step title="Download the latest build">
+        Get the latest Geyser build from the [official download page](https://geysermc.org/download). Always use official builds.
+      </Step>
+
+      <Step title="Stop your server">
+        Shut down the server completely before replacing the JAR file.
+      </Step>
+
+      <Step title="Replace the JAR">
+        Delete the old Geyser JAR from your `plugins/` or `mods/` directory (or the standalone folder) and place the new one there.
+      </Step>
+
+      <Step title="Review release notes">
+        Check whether the update introduces new config options or deprecates old ones. New config keys are added with defaults on first run, but it is good practice to review them.
+      </Step>
+
+      <Step title="Start the server">
+        Start your server. Geyser will log its version on startup. Check the console for any warnings or migration messages.
+      </Step>
+    </Steps>
+
+    <Note>
+      Geyser supports a specific range of Bedrock versions. Because Bedrock Edition auto-updates on most platforms, it is important to keep Geyser up to date. Enable `notify-on-new-bedrock-update` in `config.yml` (default: `true`) to receive console alerts when a new Bedrock version is available that the current Geyser version does not support.
+    </Note>
+  </Accordion>
+</AccordionGroup>

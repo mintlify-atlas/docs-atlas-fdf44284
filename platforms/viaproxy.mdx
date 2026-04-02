@@ -1,0 +1,103 @@
+---
+title: "ViaProxy Setup"
+description: "Install Geyser as a ViaProxy plugin to bridge Bedrock players through ViaProxy."
+---
+
+[ViaProxy](https://github.com/ViaVersion/ViaProxy) is a standalone proxy that translates between Minecraft protocol versions, allowing clients to connect to servers running different versions. Geyser integrates with ViaProxy as a plugin, adding Bedrock Edition support on top of ViaProxy's version translation layer.
+
+This setup is useful when you want both version translation (older/newer Java clients) **and** Bedrock support in a single proxy process.
+
+## Prerequisites
+
+- Java 17 or later
+- [ViaProxy](https://github.com/ViaVersion/ViaProxy/releases) — download the latest release JAR
+
+## Installation
+
+<Steps>
+  <Step title="Download Geyser for ViaProxy">
+    Go to [https://geysermc.org/download](https://geysermc.org/download) and download **Geyser-ViaProxy**.
+  </Step>
+
+  <Step title="Place the JAR in ViaProxy's plugins folder">
+    Copy the downloaded `Geyser-ViaProxy.jar` into the `plugins/` folder inside your ViaProxy working directory. Create the folder if it does not exist.
+
+    ```
+    viaproxy/
+    ├── ViaProxy.jar
+    └── plugins/
+        └── Geyser-ViaProxy.jar
+    ```
+  </Step>
+
+  <Step title="Start ViaProxy">
+    Start ViaProxy:
+
+    ```bash
+    java -jar ViaProxy.jar
+    ```
+
+    On first run, ViaProxy creates its own configuration. Geyser will create its configuration directory at:
+
+    ```
+    plugins/Geyser/config.yml
+    ```
+  </Step>
+
+  <Step title="Configure Geyser">
+    Open `plugins/Geyser/config.yml` and review the settings. Adjust as needed:
+
+    - `bedrock.address` — the IP Geyser listens on (default `0.0.0.0`)
+    - `bedrock.port` — the UDP port Bedrock clients connect to (default `19132`)
+
+    The target server is controlled by ViaProxy's own configuration (its GUI or `config.yml`), not by Geyser's `remote` section.
+
+    See the [configuration reference](/configuration/config-reference) for a full description of every option.
+  </Step>
+
+  <Step title="Open the Bedrock port on your firewall">
+    Bedrock clients connect over **UDP**. Make sure port `19132` (or whichever port you configured) is open on your firewall and forwarded on your router if applicable.
+
+    <Note>
+      Unlike Java Edition (TCP), Bedrock uses UDP. Many firewalls block UDP by default. Check both your OS firewall and any hosting-panel firewall rules.
+    </Note>
+  </Step>
+
+  <Step title="Verify the connection">
+    Start ViaProxy and look for a line in the console similar to:
+
+    ```
+    [Geyser-ViaProxy] Started Geyser on 0.0.0.0:19132
+    ```
+
+    Bedrock players can now connect using ViaProxy's IP address and port `19132`. They will be routed to whichever target server ViaProxy is configured to use.
+  </Step>
+</Steps>
+
+## Authentication
+
+Geyser-ViaProxy automatically detects whether a Floodgate key file is present and sets the auth type accordingly:
+
+- If `floodgate-key.pem` exists in `plugins/Geyser/`, Bedrock players authenticate via **Floodgate** (no Java account required).
+- Otherwise, players authenticate in **offline mode**.
+
+<Warning>
+  Online-mode authentication for Bedrock players through ViaProxy is not supported. Bedrock players connect in offline or Floodgate mode only.
+</Warning>
+
+## Wildcard domain handling
+
+If ViaProxy is configured to use wildcard domain handling (routing players to different servers based on the hostname they connect with), Geyser automatically enables `forward-host` in its config so the correct backend is selected.
+
+## Legacy server support
+
+If ViaProxy's target version is set to a server older than Beta 1.8, the ping passthrough feature is disabled automatically, as those versions pre-date the status protocol.
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/configuration/config-reference">
+    Full description of every Geyser config option.
+  </Card>
+  <Card title="Download Geyser" icon="download" href="https://geysermc.org/download">
+    Get the latest Geyser-ViaProxy build.
+  </Card>
+</CardGroup>

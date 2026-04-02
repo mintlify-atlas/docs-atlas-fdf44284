@@ -1,0 +1,139 @@
+---
+title: "Geyser API Overview"
+description: "Introduction to the Geyser Java API for building extensions and interacting with Bedrock player sessions."
+---
+
+The Geyser API is a Java library that lets developers build **extensions** — plugins that run inside Geyser itself — and interact programmatically with Bedrock player connections, events, custom items, custom blocks, and resource packs.
+
+<Note>
+  The Geyser API is separate from platform-specific plugin APIs (Bukkit, Fabric, etc.). Extensions are loaded directly by Geyser and work across all platforms.
+</Note>
+
+## Adding the dependency
+
+<Tabs>
+  <Tab title="Gradle (Kotlin)">
+    ```kotlin
+    repositories {
+        maven("https://repo.opencollab.dev/maven-snapshots/")
+    }
+
+    dependencies {
+        compileOnly("org.geysermc.geyser:api:2.9.5-SNAPSHOT")
+    }
+    ```
+  </Tab>
+  <Tab title="Gradle (Groovy)">
+    ```groovy
+    repositories {
+        maven { url 'https://repo.opencollab.dev/maven-snapshots/' }
+    }
+
+    dependencies {
+        compileOnly 'org.geysermc.geyser:api:2.9.5-SNAPSHOT'
+    }
+    ```
+  </Tab>
+  <Tab title="Maven">
+    ```xml
+    <repositories>
+      <repository>
+        <id>opencollab-snapshots</id>
+        <url>https://repo.opencollab.dev/maven-snapshots/</url>
+      </repository>
+    </repositories>
+
+    <dependencies>
+      <dependency>
+        <groupId>org.geysermc.geyser</groupId>
+        <artifactId>api</artifactId>
+        <version>2.9.5-SNAPSHOT</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+    ```
+  </Tab>
+</Tabs>
+
+## Getting the API instance
+
+The main entry point is `GeyserApi`, accessible as a static singleton once Geyser is initialized:
+
+```java
+import org.geysermc.geyser.api.GeyserApi;
+
+GeyserApi api = GeyserApi.api();
+```
+
+<Warning>
+  Do not call `GeyserApi.api()` before Geyser has finished initializing. Listen to `GeyserPostInitializeEvent` if you need to run code after startup.
+</Warning>
+
+## Key capabilities
+
+| Area | Description |
+|------|-------------|
+| **Extensions** | Build extensions that hook into Geyser's lifecycle |
+| **Events** | Subscribe to Bedrock session, connection, and lifecycle events |
+| **Player connections** | Access online Bedrock connections and control their camera |
+| **Custom items** | Register custom Bedrock items that map to Java items |
+| **Custom blocks** | Register custom Bedrock blocks that map to Java blocks |
+| **Resource packs** | Serve and manage resource packs dynamically via file or URL |
+
+## Checking the API version
+
+```java
+import org.geysermc.api.util.ApiVersion;
+
+ApiVersion version = GeyserApi.api().geyserApiVersion();
+```
+
+The version scheme is documented in the [Geyser version outline](https://github.com/geysermc/api/blob/master/geyser-versioning.md).
+
+## Accessing online connections
+
+```java
+// All currently connected Bedrock players
+List<? extends GeyserConnection> connections = GeyserApi.api().onlineConnections();
+
+// Look up by Java UUID
+GeyserConnection connection = GeyserApi.api().connectionByUuid(uuid);
+
+// Look up by XUID (Bedrock identifier)
+GeyserConnection connection = GeyserApi.api().connectionByXuid(xuid);
+```
+
+## Platform and server info
+
+```java
+PlatformType platform = GeyserApi.api().platformType();
+MinecraftVersion javaVersion = GeyserApi.api().supportedJavaVersion();
+List<MinecraftVersion> bedrockVersions = GeyserApi.api().supportedBedrockVersions();
+RemoteServer remoteServer = GeyserApi.api().defaultRemoteServer();
+BedrockListener listener = GeyserApi.api().bedrockListener();
+Path configDir = GeyserApi.api().configDirectory();
+Path packsDir = GeyserApi.api().packDirectory();
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Building Extensions" icon="puzzle-piece" href="/api/extensions">
+    Create an extension class, write extension.yml, and hook into Geyser's lifecycle.
+  </Card>
+  <Card title="Events" icon="bolt" href="/api/events">
+    Subscribe to Bedrock session, connection, and lifecycle events using the event bus.
+  </Card>
+  <Card title="Player Connections" icon="user" href="/api/connections">
+    Access GeyserConnection, control camera, manage fogs, and more.
+  </Card>
+  <Card title="Custom Items" icon="sword" href="/api/custom-items">
+    Register custom Bedrock items that appear when Java items are held.
+  </Card>
+  <Card title="Custom Blocks" icon="cube" href="/api/custom-blocks">
+    Register custom Bedrock blocks with full component support.
+  </Card>
+  <Card title="Resource Packs" icon="box" href="/api/resource-packs">
+    Serve resource packs programmatically from a file path or URL.
+  </Card>
+</CardGroup>

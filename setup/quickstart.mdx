@@ -1,0 +1,146 @@
+---
+title: "Quick Start"
+description: "Get Geyser running and allow Minecraft: Bedrock Edition players to join your Java Edition server in minutes."
+---
+
+Geyser is a bridge that lets Bedrock Edition players connect to Java Edition servers. This guide walks you through the fastest path to get Geyser up and running.
+
+## Choose your platform
+
+Geyser comes in two forms depending on how you run your server:
+
+<CardGroup cols={2}>
+  <Card title="Plugin" icon="puzzle-piece" href="/platforms/spigot">
+    For Spigot, Paper, Waterfall, BungeeCord, or Velocity servers. Geyser runs inside your existing server process.
+  </Card>
+  <Card title="Standalone" icon="server" href="/platforms/standalone">
+    Run Geyser as a separate proxy when you cannot install plugins, or when connecting to a remote server.
+  </Card>
+</CardGroup>
+
+## Installation
+
+<Tabs>
+  <Tab title="Plugin (Spigot / Paper / Velocity / BungeeCord)">
+    <Steps>
+      <Step title="Download Geyser">
+        Download the correct plugin JAR for your platform from the [official download page](https://geysermc.org/download).
+
+        | Platform | File to download |
+        |---|---|
+        | Spigot / Paper | `Geyser-Spigot.jar` |
+        | Velocity | `Geyser-Velocity.jar` |
+        | BungeeCord / Waterfall | `Geyser-BungeeCord.jar` |
+      </Step>
+      <Step title="Install the plugin">
+        Place the downloaded JAR into your server's `plugins/` folder.
+
+        ```
+        your-server/
+        └── plugins/
+            └── Geyser-Spigot.jar   # (or the variant for your platform)
+        ```
+      </Step>
+      <Step title="Start the server">
+        Start (or restart) your server. Geyser will generate a default configuration file at `plugins/Geyser-<Platform>/config.yml`.
+      </Step>
+      <Step title="Configure Geyser">
+        Open `plugins/Geyser-<Platform>/config.yml`. The most important settings are:
+
+        ```yaml
+        bedrock:
+          # IP address Geyser listens on for Bedrock connections
+          address: 0.0.0.0
+          # UDP port Bedrock clients connect to (default: 19132)
+          port: 19132
+
+        java:
+          # Address of your Java server (use "auto" for plugin mode)
+          address: auto
+          port: 25565
+        ```
+
+        <Note>
+          For plugin installations, `java.address` can usually be left as `auto`. Geyser will connect directly to the local Java server.
+        </Note>
+      </Step>
+      <Step title="Open the Bedrock port">
+        Ensure UDP port **19132** is open in your firewall and/or hosting panel. Bedrock Edition uses UDP — TCP rules do not apply.
+
+        <Warning>
+          If UDP port 19132 is blocked, Bedrock players will not be able to connect. Check both your OS firewall and any external firewall your host provides.
+        </Warning>
+      </Step>
+      <Step title="Reload and connect">
+        Reload the plugin with `/geyser reload` or restart the server. Bedrock players can now connect to your server's IP address on port **19132**.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Standalone">
+    <Steps>
+      <Step title="Download Geyser">
+        Download `Geyser-Standalone.jar` from the [official download page](https://geysermc.org/download).
+      </Step>
+      <Step title="Run Geyser once to generate config">
+        ```bash
+        java -jar Geyser-Standalone.jar
+        ```
+
+        Geyser will create a `config.yml` file in the same directory and then exit.
+      </Step>
+      <Step title="Configure the Java server address">
+        Open `config.yml` and point Geyser at your Java server:
+
+        ```yaml
+        bedrock:
+          address: 0.0.0.0
+          # UDP port Bedrock clients connect to (default: 19132)
+          port: 19132
+
+        java:
+          # Hostname or IP of your Java Edition server
+          address: your.java.server.com
+          port: 25565
+        ```
+      </Step>
+      <Step title="Open the Bedrock port">
+        Ensure UDP port **19132** is open in your firewall.
+
+        <Warning>
+          If UDP port 19132 is blocked, Bedrock players will not be able to connect. Check both your OS firewall and any external firewall your host provides.
+        </Warning>
+      </Step>
+      <Step title="Start Geyser">
+        ```bash
+        java -jar Geyser-Standalone.jar
+        ```
+
+        Bedrock players can now connect to the machine running Geyser on port **19132**.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Test the connection
+
+Use the public GeyserMC test server to verify Bedrock connectivity works from your client before troubleshooting your own setup:
+
+- **Java address:** `test.geysermc.org:25565`
+- **Bedrock address:** `test.geysermc.org:19132`
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Supported versions" icon="list-check" href="/setup/supported-versions">
+    See which Bedrock and Java versions Geyser currently supports.
+  </Card>
+  <Card title="Configuration reference" icon="sliders" href="/configuration/config-reference">
+    Explore all available config options to customize Geyser's behavior.
+  </Card>
+  <Card title="Floodgate" icon="droplet" href="/guides/floodgate">
+    Allow Bedrock players to join without a Java account using Floodgate.
+  </Card>
+  <Card title="Current limitations" icon="triangle-exclamation" href="/guides/current-limitations">
+    Understand what Geyser cannot translate between the two editions.
+  </Card>
+</CardGroup>

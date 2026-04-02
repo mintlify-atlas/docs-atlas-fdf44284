@@ -1,0 +1,306 @@
+---
+title: "Resource Packs API"
+description: "Serve Bedrock resource packs programmatically from a file path or URL, with options for priority, subpacks, and per-player packs."
+---
+
+Geyser can send resource packs to Bedrock clients. In addition to the file-based approach (dropping `.mcpack`/`.zip` files into the `packs/` folder), the API lets extensions register packs programmatically — both globally at startup and dynamically per-player.
+
+---
+
+## Core classes
+
+| Class | Description |
+|-------|-------------|
+| `ResourcePack` | Represents a resource pack to be sent to clients |
+| `PackCodec` | Abstract base for how a pack is read and served |
+| `PathPackCodec` | Reads a pack from a local file path |
+| `UrlPackCodec` | Serves a pack via a remote URL (Bedrock downloads it) |
+| `ResourcePackOption` | Base interface for options applied to a pack |
+| `PriorityOption` | Controls pack stack priority |
+| `SubpackOption` | Selects a specific subpack within the pack |
+| `UrlFallbackOption` | Controls URL pack fallback behavior |
+
+---
+
+## Creating resource packs
+
+### From a file path
+
+```java
+import org.geysermc.geyser.api.pack.ResourcePack;
+import org.geysermc.geyser.api.pack.PackCodec;
+import java.nio.file.Path;
+
+Path packPath = this.dataFolder().resolve("mypacks/custom.mcpack");
+PackCodec codec = PackCodec.path(packPath);
+ResourcePack pack = ResourcePack.create(codec);
+```
+
+### From a URL
+
+```java
+PackCodec codec = PackCodec.url("https://example.com/mypacks/custom.zip");
+ResourcePack pack = ResourcePack.create(codec);
+```
+
+<Warning>
+  URL packs must be a **direct download link** to a `.zip` or `.mcpack` file. The server must respond with `Content-Type: application/zip` and a correct `Content-Length` header. These are Bedrock client limitations.
+</Warning>
+
+### With a content key (encrypted packs)
+
+Use the `ResourcePack.Builder` to add a content key for encrypted packs:
+
+```java
+ResourcePack pack = ResourcePack.builder(codec)
+    .contentKey("my-secret-key")
+    .build();
+```
+
+---
+
+## Registering packs globally
+
+Use `GeyserDefineResourcePacksEvent` to register packs for **all** connecting Bedrock clients. This event fires once at startup (and again on `/geyser reload`).
+
+```java
+import org.geysermc.event.subscribe.Subscribe;
+import org.geysermc.geyser.api.event.lifecycle.GeyserDefineResourcePacksEvent;
+import org.geysermc.geyser.api.pack.PackCodec;
+import org.geysermc.geyser.api.pack.ResourcePack;
+import org.geysermc.geyser.api.pack.option.PriorityOption;
+
+public class MyExtension implements Extension {
+
+    private ResourcePack globalPack;
+
+    @Subscribe
+    public void onPostInitialize(GeyserPostInitializeEvent event) {
+        Path packPath = this.dataFolder().resolve("global.mcpack");
+        this.globalPack = ResourcePack.create(PackCodec.path(packPath));
+    }
+
+    @Subscribe
+    public void onDefineResourcePacks(GeyserDefineResourcePacksEvent event) {
+        event.register(globalPack, PriorityOption.HIGH);
+    }
+}
+```
+
+### GeyserDefineResourcePacksEvent methods
+
+<ResponseField name="resourcePacks()" type="List&lt;ResourcePack&gt;">
+  Unmodifiable list of currently registered packs.
+</ResponseField>
+<ResponseField name="register(ResourcePack pack, ResourcePackOption<?>... options)" type="void">
+  Register a pack to be sent to all clients. Throws `ResourcePackException` on failure.
+</ResponseField>
+<ResponseField name="registerOptions(UUID uuid, ResourcePackOption<?>... options)" type="void">
+  Set or override options for an already-registered pack.
+</ResponseField>
+<ResponseField name="options(UUID uuid)" type="Collection&lt;ResourcePackOption&lt;?&gt;&gt;">
+  Returns the current options for a registered pack.
+</ResponseField>
+<ResponseField name="option(UUID uuid, ResourcePackOption.Type type)" type="@Nullable ResourcePackOption&lt;?&gt;">
+  Returns a specific option type for a registered pack.
+</ResponseField>
+<ResponseField name="unregister(UUID uuid)" type="void">
+  Remove a pack from the global list.
+</ResponseField>
+
+---
+
+## Registering packs per player
+
+Use `SessionLoadResourcePacksEvent` to register, override, or remove packs for a **specific connecting player**. This fires each time a Bedrock client starts the resource pack handshake.
+
+```java
+import org.geysermc.geyser.api.event.bedrock.SessionLoadResourcePacksEvent;
+
+@Subscribe
+public void onSessionLoadPacks(SessionLoadResourcePacksEvent event) {
+    GeyserConnection connection = event.connection();
+
+    // Add a pack only for this player
+    event.register(playerPack, PriorityOption.NORMAL);
+
+    // Remove a globally-registered pack for this player
+    // event.unregister(globalPack.uuid());
+
+    // Override options for a global pack
+    // event.registerOptions(globalPack.uuid(), PriorityOption.LOWEST);
+
+    // Disable vibrant visuals for this player (default: true)
+    // event.allowVibrantVisuals(false);
+}
+```
+
+### SessionLoadResourcePacksEvent methods
+
+<ResponseField name="resourcePacks()" type="List&lt;ResourcePack&gt;">
+  Unmodifiable list of packs queued for this player (includes global packs).
+</ResponseField>
+<ResponseField name="register(ResourcePack pack, ResourcePackOption<?>... options)" type="void">
+  Add a pack for this player session only.
+</ResponseField>
+<ResponseField name="registerOptions(UUID uuid, ResourcePackOption<?>... options)" type="void">
+  Override options for a pack (can target global packs too).
+</ResponseField>
+<ResponseField name="options(UUID uuid)" type="Collection&lt;ResourcePackOption&lt;?&gt;&gt;">
+  Returns the current options for a registered pack.
+</ResponseField>
+<ResponseField name="option(UUID uuid, ResourcePackOption.Type type)" type="@Nullable ResourcePackOption&lt;?&gt;">
+  Returns a specific option type for a registered pack.
+</ResponseField>
+<ResponseField name="unregister(UUID uuid)" type="boolean">
+  Remove a pack from the list for this player.
+</ResponseField>
+<ResponseField name="allowVibrantVisuals(boolean enabled)" type="void">
+  Whether to allow vibrant visuals for this client. Default is true. Set to false if your pack has compatibility issues.
+</ResponseField>
+
+---
+
+## Resource pack options
+
+Options are passed alongside a `ResourcePack` when registering. Each `ResourcePackOption` has a `Type` and a typed value.
+
+### PriorityOption
+
+Controls the order in the Bedrock resource pack stack. Higher priority packs override lower priority packs when both modify the same resource.
+
+```java
+import org.geysermc.geyser.api.pack.option.PriorityOption;
+
+// Use a preset
+PriorityOption.HIGHEST  // 100
+PriorityOption.HIGH     // 50
+PriorityOption.NORMAL   // 0
+PriorityOption.LOW      // -50
+PriorityOption.LOWEST   // -100
+
+// Or set a custom value (-100 to 100 inclusive)
+PriorityOption custom = PriorityOption.priority(75);
+```
+
+### SubpackOption
+
+Selects a specific subpack variant from a resource pack that has subpacks defined in its manifest.
+
+```java
+import org.geysermc.geyser.api.pack.option.SubpackOption;
+
+// By subpack name
+SubpackOption option = SubpackOption.named("HighQuality");
+
+// By ResourcePackManifest.Subpack object
+SubpackOption option = SubpackOption.subpack(manifest.subpacks().get(0));
+
+// No subpack (default behavior)
+SubpackOption option = SubpackOption.empty();
+```
+
+### UrlFallbackOption
+
+Only applicable to packs created with `UrlPackCodec`. Controls what happens when the Bedrock client cannot download the pack from the URL.
+
+```java
+import org.geysermc.geyser.api.pack.option.UrlFallbackOption;
+
+// Fall back to serving via RakNet connection (default)
+UrlFallbackOption.TRUE
+
+// Disconnect the player if URL download fails
+UrlFallbackOption.FALSE
+
+// Or explicitly
+UrlFallbackOption option = UrlFallbackOption.fallback(true);
+```
+
+---
+
+## PackCodec reference
+
+`PackCodec` is the abstract base class for how a pack is read and serialized.
+
+<ResponseField name="sha256()" type="byte[]">
+  SHA-256 hash of the pack file.
+</ResponseField>
+<ResponseField name="size()" type="long">
+  Size of the pack in bytes.
+</ResponseField>
+<ResponseField name="serialize()" type="SeekableByteChannel">
+  Serializes the pack into a byte buffer.
+</ResponseField>
+
+Static factory methods:
+
+```java
+// Create from a Path
+PackCodec.path(Path path)
+
+// Create from a URL string
+PackCodec.url(String url)
+```
+
+`PathPackCodec` additionally exposes:
+
+```java
+Path path = pathCodec.path();
+```
+
+`UrlPackCodec` additionally exposes:
+
+```java
+String url = urlCodec.url();
+```
+
+---
+
+## ResourcePack reference
+
+<ResponseField name="codec()" type="PackCodec">
+  The codec used by this pack.
+</ResponseField>
+<ResponseField name="manifest()" type="ResourcePackManifest">
+  The pack manifest (header, modules, subpacks, etc.).
+</ResponseField>
+<ResponseField name="contentKey()" type="String">
+  The encryption content key, or an empty string if none.
+</ResponseField>
+<ResponseField name="uuid()" type="UUID">
+  Shortcut for `manifest().header().uuid()`.
+</ResponseField>
+
+---
+
+## Complete example: URL pack with fallback and subpack
+
+```java
+@Subscribe
+public void onDefineResourcePacks(GeyserDefineResourcePacksEvent event) {
+    PackCodec codec = PackCodec.url("https://cdn.example.com/mypacks/hd_textures.zip");
+    ResourcePack pack = ResourcePack.create(codec);
+
+    event.register(
+        pack,
+        PriorityOption.HIGH,
+        SubpackOption.named("UltraHD"),
+        UrlFallbackOption.TRUE  // serve via RakNet if URL fails
+    );
+}
+```
+
+## Complete example: per-player pack based on permissions
+
+```java
+@Subscribe
+public void onSessionLoadPacks(SessionLoadResourcePacksEvent event) {
+    GeyserConnection connection = event.connection();
+
+    // Only send the VIP pack to players with a specific XUID
+    if (isVip(connection.xuid())) {
+        event.register(vipPack, PriorityOption.HIGHEST);
+    }
+}
+```

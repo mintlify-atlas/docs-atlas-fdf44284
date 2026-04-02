@@ -1,0 +1,460 @@
+---
+title: "Events"
+description: "Subscribe to Geyser events using the EventBus and @Subscribe annotation."
+---
+
+Geyser uses an event bus to notify extensions about things that happen — players connecting, disconnecting, resource packs being loaded, and much more.
+
+## Core concepts
+
+| Class | Description |
+|-------|-------------|
+| `EventBus<R>` | The main bus; can fire and subscribe to events for any `EventRegistrar` |
+| `ExtensionEventBus` | A scoped bus returned by `Extension#eventBus()` — automatically attaches your extension as the registrar |
+| `EventRegistrar` | Marker interface for owners of event subscriptions (extensions implement it) |
+| `@Subscribe` | Annotation on methods inside an `EventRegistrar` to listen to events |
+
+---
+
+## Subscribing to events
+
+### Option 1 — `@Subscribe` annotation (recommended)
+
+Any method annotated with `@Subscribe` in your `Extension` class is automatically picked up:
+
+```java
+import org.geysermc.event.subscribe.Subscribe;
+import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
+
+public class MyExtension implements Extension {
+
+    @Subscribe
+    public void onSessionJoin(SessionJoinEvent event) {
+        this.logger().info(event.connection().name() + " joined the server.");
+    }
+}
+```
+
+### Option 2 — Programmatic subscription
+
+Use `this.eventBus()` to subscribe at runtime, including lambda handlers:
+
+```java
+this.eventBus().subscribe(this, SessionJoinEvent.class, event -> {
+    this.logger().info("Player joined: " + event.connection().name());
+});
+```
+
+To subscribe via the global event bus instead:
+
+```java
+GeyserApi.api().eventBus().subscribe(this, SessionJoinEvent.class, event -> {
+    // ...
+});
+```
+
+### Unregistering listeners
+
+All subscriptions for an extension are removed automatically when the extension is disabled. To remove all manually:
+
+```java
+this.eventBus().unregisterAll();
+```
+
+---
+
+## Cancellable events
+
+Events that implement `Cancellable` can be cancelled to prevent the default action:
+
+```java
+@Subscribe
+public void onConnectionRequest(ConnectionRequestEvent event) {
+    if (event.inetSocketAddress().getAddress().isLoopbackAddress()) {
+        return; // allow
+    }
+    event.setCancelled(true); // reject the connection
+}
+```
+
+For `SessionLoginEvent`, you can also specify a disconnect reason:
+
+```java
+@Subscribe
+public void onLogin(SessionLoginEvent event) {
+    event.setCancelled(true, "You are not allowed to join.");
+}
+```
+
+---
+
+## Event categories
+
+### Bedrock session events
+
+These events all carry a `GeyserConnection` via `event.connection()`.
+
+#### `SessionJoinEvent`
+**Package:** `org.geysermc.geyser.api.event.bedrock`
+
+Fired when the Bedrock session has connected to a Java remote server and is in a play-ready state.
+
+```java
+@Subscribe
+public void onJoin(SessionJoinEvent event) {
+    GeyserConnection connection = event.connection();
+}
+```
+
+---
+
+#### `SessionDisconnectEvent`
+**Package:** `org.geysermc.geyser.api.event.bedrock`
+
+Fired when a Geyser session disconnects. You can read or change the disconnect reason shown to the client.
+
+```java
+@Subscribe
+public void onDisconnect(SessionDisconnectEvent event) {
+    String reason = event.disconnectReason();
+    event.disconnectReason("Goodbye, " + event.connection().name() + "!");
+}
+```
+
+**Methods:**
+
+<ResponseField name="disconnectReason()" type="String">
+  The disconnect reason shown to the Bedrock client.
+</ResponseField>
+
+<ResponseField name="disconnectReason(String reason)" type="void">
+  Overrides the disconnect message shown to the Bedrock client.
+</ResponseField>
+
+---
+
+#### `SessionLoginEvent`
+**Package:** `org.geysermc.geyser.api.event.bedrock`
+**Cancellable:** Yes
+
+Fired after the Bedrock session logs in and is about to connect to the remote Java server. Cancel it to prevent the connection.
+
+```java
+@Subscribe
+public void onLogin(SessionLoginEvent event) {
+    // Redirect to a different Java server (standalone mode only)
+    // event.remoteServer(myAlternativeServer);
+
+    // Or cancel entirely
+    // event.setCancelled(true, "Server is in maintenance mode.");
+
+    Map<String, byte[]> cookies = event.cookies();
+    boolean isTransfer = event.transferring();
+}
+```
+
+**Methods:**
+
+<ResponseField name="isCancelled()" type="boolean">
+  Whether the event has been cancelled.
+</ResponseField>
+<ResponseField name="setCancelled(boolean cancelled)" type="void">
+  Cancels the login. Uses a default disconnect reason.
+</ResponseField>
+<ResponseField name="setCancelled(boolean cancelled, String disconnectReason)" type="void">
+  Cancels the login with the specified disconnect reason.
+</ResponseField>
+<ResponseField name="disconnectReason()" type="@Nullable String">
+  The cancellation reason, or null if none was set.
+</ResponseField>
+<ResponseField name="remoteServer()" type="RemoteServer">
+  The Java server the session will connect to.
+</ResponseField>
+<ResponseField name="remoteServer(RemoteServer remoteServer)" type="void">
+  Override the target Java server (standalone mode only).
+</ResponseField>
+<ResponseField name="cookies()" type="Map&lt;String, byte[]&gt;">
+  Session cookies carried across server transfers.
+</ResponseField>
+<ResponseField name="transferring()" type="boolean">
+  Whether this login has transfer intent.
+</ResponseField>
+
+---
+
+#### `SessionLoadResourcePacksEvent`
+**Package:** `org.geysermc.geyser.api.event.bedrock`
+
+Fired when Geyser is about to send resource packs to a connecting Bedrock client. Add, remove, or configure per-player packs here.
+
+```java
+import org.geysermc.geyser.api.pack.ResourcePack;
+import org.geysermc.geyser.api.pack.PackCodec;
+import org.geysermc.geyser.api.pack.option.PriorityOption;
+
+@Subscribe
+public void onLoadResourcePacks(SessionLoadResourcePacksEvent event) {
+    ResourcePack pack = ResourcePack.create(PackCodec.path(myPackPath));
+    event.register(pack, PriorityOption.HIGH);
+}
+```
+
+**Methods:**
+
+<ResponseField name="resourcePacks()" type="List&lt;ResourcePack&gt;">
+  Unmodifiable list of packs queued for this connection.
+</ResponseField>
+<ResponseField name="register(ResourcePack pack, ResourcePackOption<?>... options)" type="void">
+  Add a pack for this specific player session. Throws `ResourcePackException` on failure.
+</ResponseField>
+<ResponseField name="registerOptions(UUID uuid, ResourcePackOption<?>... options)" type="void">
+  Set or override options for an already-registered pack.
+</ResponseField>
+<ResponseField name="options(UUID uuid)" type="Collection&lt;ResourcePackOption&lt;?&gt;&gt;">
+  Returns the current options for a registered pack.
+</ResponseField>
+<ResponseField name="option(UUID uuid, ResourcePackOption.Type type)" type="@Nullable ResourcePackOption&lt;?&gt;">
+  Returns a specific option type for a registered pack.
+</ResponseField>
+<ResponseField name="unregister(UUID uuid)" type="boolean">
+  Remove a pack from the list for this player.
+</ResponseField>
+<ResponseField name="allowVibrantVisuals(boolean enabled)" type="void">
+  Whether to allow vibrant visuals for joining clients (true by default).
+</ResponseField>
+
+---
+
+#### `ClientEmoteEvent`
+**Package:** `org.geysermc.geyser.api.event.bedrock`
+**Cancellable:** Yes
+
+Fired when a Bedrock player performs an emote, before it is broadcast to other players. Cancelling prevents other players from seeing it, but not the emoting player.
+
+```java
+@Subscribe
+public void onEmote(ClientEmoteEvent event) {
+    this.logger().info(event.connection().name() + " emoted: " + event.emoteId());
+    // event.setCancelled(true); // hide from others
+}
+```
+
+**Methods:**
+
+<ResponseField name="emoteId()" type="String">
+  The ID of the emote being performed.
+</ResponseField>
+
+---
+
+#### `SessionSkinApplyEvent`
+**Package:** `org.geysermc.geyser.api.event.bedrock`
+
+Fired when a skin is applied to a player. Can be used to override a player's skin, cape, or geometry.
+
+```java
+@Subscribe
+public void onSkinApply(SessionSkinApplyEvent event) {
+    this.logger().info("Skin applied for: " + event.username());
+    // event.skin(newSkin);
+    // event.cape(newCape);
+    // event.geometry(newGeometry);
+}
+```
+
+**Methods:**
+
+<ResponseField name="username()" type="String">
+  Username of the player receiving the skin.
+</ResponseField>
+<ResponseField name="uuid()" type="UUID">
+  UUID of the player.
+</ResponseField>
+<ResponseField name="slim()" type="boolean">
+  Whether the player uses a slim (Alex) model.
+</ResponseField>
+<ResponseField name="bedrock()" type="boolean">
+  Whether the player is a Bedrock player.
+</ResponseField>
+<ResponseField name="originalSkin()" type="SkinData">
+  The original skin data before any modification.
+</ResponseField>
+<ResponseField name="skinData()" type="SkinData">
+  The current (possibly modified) skin data.
+</ResponseField>
+<ResponseField name="skin(Skin newSkin)" type="void">
+  Override the skin.
+</ResponseField>
+<ResponseField name="cape(Cape newCape)" type="void">
+  Override the cape.
+</ResponseField>
+<ResponseField name="geometry(SkinGeometry newGeometry)" type="void">
+  Override the geometry.
+</ResponseField>
+
+---
+
+### Connection events
+
+#### `ConnectionRequestEvent`
+**Package:** `org.geysermc.geyser.api.event.connection`
+**Cancellable:** Yes
+
+Fired before a Bedrock client connection is accepted. Cancelling rejects the connection entirely.
+
+```java
+@Subscribe
+public void onConnectionRequest(ConnectionRequestEvent event) {
+    InetSocketAddress address = event.inetSocketAddress();
+    InetSocketAddress proxyAddress = event.proxyIp(); // null if no proxy
+    if (isBlocked(address)) {
+        event.setCancelled(true);
+    }
+}
+```
+
+**Methods:**
+
+<ResponseField name="inetSocketAddress()" type="InetSocketAddress">
+  The IP address of the connecting client.
+</ResponseField>
+<ResponseField name="proxyIp()" type="@Nullable InetSocketAddress">
+  The IP address of the proxy, or null if there is none.
+</ResponseField>
+<ResponseField name="isCancelled()" type="boolean">
+  Whether the connection will be rejected.
+</ResponseField>
+<ResponseField name="setCancelled(boolean cancelled)" type="void">
+  Reject the incoming connection.
+</ResponseField>
+
+---
+
+#### `GeyserBedrockPingEvent`
+**Package:** `org.geysermc.geyser.api.event.connection`
+
+Fired when a Bedrock client pings the server. Use this to customize the MOTD and player counts shown in the server list.
+
+```java
+@Subscribe
+public void onPing(GeyserBedrockPingEvent event) {
+    event.primaryMotd("My Geyser Server");
+    event.secondaryMotd("Bedrock Edition");
+    event.playerCount(42);
+    event.maxPlayerCount(100);
+
+    InetSocketAddress client = event.address();
+}
+```
+
+**Methods:**
+
+<ResponseField name="primaryMotd(String primary)" type="void">
+  Sets the primary MOTD line.
+</ResponseField>
+<ResponseField name="secondaryMotd(String secondary)" type="void">
+  Sets the secondary MOTD line (used for LAN game entry).
+</ResponseField>
+<ResponseField name="playerCount(int count)" type="void">
+  Sets the displayed online player count.
+</ResponseField>
+<ResponseField name="maxPlayerCount(int max)" type="void">
+  Sets the displayed maximum player count.
+</ResponseField>
+<ResponseField name="primaryMotd()" type="@Nullable String">
+  Returns the current primary MOTD.
+</ResponseField>
+<ResponseField name="secondaryMotd()" type="@Nullable String">
+  Returns the current secondary MOTD.
+</ResponseField>
+<ResponseField name="playerCount()" type="int">
+  Returns the current player count.
+</ResponseField>
+<ResponseField name="maxPlayerCount()" type="int">
+  Returns the current maximum player count.
+</ResponseField>
+<ResponseField name="address()" type="InetSocketAddress">
+  The address of the pinging client.
+</ResponseField>
+
+---
+
+### Java / downstream events
+
+#### `ServerTransferEvent`
+**Package:** `org.geysermc.geyser.api.event.java`
+
+Fired when the Java server requests a transfer of the player to a different Java server. Set the Bedrock target host/port to redirect the Bedrock client; if not set, the Bedrock player is disconnected.
+
+```java
+@Subscribe
+public void onServerTransfer(ServerTransferEvent event) {
+    String javaHost = event.host();
+    int javaPort = event.port();
+
+    // Redirect Bedrock client to a different server
+    event.bedrockHost("bedrock.mynetwork.net");
+    event.bedrockPort(19132);
+
+    Map<String, byte[]> cookies = event.cookies();
+}
+```
+
+**Methods:**
+
+<ResponseField name="host()" type="String">
+  The Java server host requested by the transfer.
+</ResponseField>
+<ResponseField name="port()" type="int">
+  The Java server port requested by the transfer.
+</ResponseField>
+<ResponseField name="bedrockHost()" type="@Nullable String">
+  The Bedrock target host, or null if not set.
+</ResponseField>
+<ResponseField name="bedrockPort()" type="int">
+  The Bedrock target port, or -1 if not set.
+</ResponseField>
+<ResponseField name="bedrockHost(String host)" type="void">
+  Set the Bedrock transfer destination host.
+</ResponseField>
+<ResponseField name="bedrockPort(int port)" type="void">
+  Set the Bedrock transfer destination port (0–65535).
+</ResponseField>
+<ResponseField name="cookies()" type="Map&lt;String, byte[]&gt;">
+  Session cookies from the current connection.
+</ResponseField>
+
+---
+
+### Lifecycle events
+
+These are fired during Geyser's startup and shutdown sequence. They do not carry a player connection.
+
+| Event | When it fires |
+|-------|---------------|
+| `GeyserPreInitializeEvent` | Before Geyser initializes |
+| `GeyserPostInitializeEvent` | After Geyser has fully initialized |
+| `GeyserPreReloadEvent` | Before a `/geyser reload` |
+| `GeyserPostReloadEvent` | After a `/geyser reload` |
+| `GeyserShutdownEvent` | When Geyser is shutting down |
+| `GeyserDefineCustomItemsEvent` | Startup: register custom items |
+| `GeyserDefineCustomBlocksEvent` | Startup: register custom blocks |
+| `GeyserDefineCustomSkullsEvent` | Startup: register custom player skulls |
+| `GeyserDefineEntityPropertiesEvent` | Startup: register custom entity properties |
+| `GeyserDefineResourcePacksEvent` | Startup: register global resource packs |
+| `GeyserLoadResourcePacksEvent` | Startup: load resource packs from the packs directory |
+| `GeyserDefineCommandsEvent` | Startup: register commands |
+| `GeyserRegisterPermissionsEvent` | Startup: register permission nodes |
+| `GeyserRegisterPermissionCheckersEvent` | Startup: register permission checker implementations |
+
+```java
+@Subscribe
+public void onPostInitialize(GeyserPostInitializeEvent event) {
+    this.logger().info("Geyser is ready!");
+}
+
+@Subscribe
+public void onShutdown(GeyserShutdownEvent event) {
+    this.logger().info("Geyser is shutting down.");
+}
+```

@@ -1,0 +1,104 @@
+---
+title: "Fabric / NeoForge Setup"
+description: "Install Geyser as a mod on a Fabric or NeoForge server to allow Bedrock players to connect."
+---
+
+Geyser is available as a server-side mod for both **Fabric** and **NeoForge**. Both variants share the same core and configuration; only the loader differs. This page covers installation for both.
+
+## Prerequisites
+
+<Tabs>
+  <Tab title="Fabric">
+    - Java 21 or later
+    - Minecraft 1.21.11 or later
+    - [Fabric Loader](https://fabricmc.net/use/installer/) 0.18.2 or later
+    - [Fabric API](https://modrinth.com/mod/fabric-api)
+  </Tab>
+  <Tab title="NeoForge">
+    - Java 21 or later
+    - Minecraft 1.21.11 or later
+    - [NeoForge](https://neoforged.net/) 21.11.0-beta or later
+  </Tab>
+</Tabs>
+
+## Installation
+
+<Steps>
+  <Step title="Download Geyser">
+    Go to [https://geysermc.org/download](https://geysermc.org/download) and download the build that matches your loader:
+
+    - **Geyser-Fabric** for Fabric servers
+    - **Geyser-NeoForge** for NeoForge servers
+  </Step>
+
+  <Step title="Place the JAR in your mods folder">
+    Copy the downloaded JAR into the `mods/` folder of your server.
+
+    ```
+    server/
+    └── mods/
+        └── Geyser-Fabric.jar   # or Geyser-NeoForge.jar
+    ```
+
+    <Note>
+      For Fabric, make sure `fabric-api` is also present in the `mods/` folder. Geyser-Fabric declares it as a required dependency.
+    </Note>
+  </Step>
+
+  <Step title="Start the server">
+    Start or restart your server. Geyser will generate its configuration file at:
+
+    ```
+    config/Geyser-Fabric/config.yml   # Fabric
+    config/Geyser-NeoForge/config.yml # NeoForge
+    ```
+  </Step>
+
+  <Step title="Configure Geyser">
+    Open the generated `config.yml` and review the settings. Adjust as needed:
+
+    - `bedrock.address` — the IP Geyser listens on (default `0.0.0.0`)
+    - `bedrock.port` — the UDP port Bedrock clients connect to (default `19132`)
+
+    See the [configuration reference](/configuration/config-reference) for a full description of every option.
+  </Step>
+
+  <Step title="Open the Bedrock port on your firewall">
+    Bedrock clients connect over **UDP**. Make sure port `19132` (or whichever port you configured) is open on your firewall and forwarded on your router if applicable.
+
+    <Note>
+      Unlike Java Edition (TCP), Bedrock uses UDP. Many firewalls block UDP by default. Check both your OS firewall and any hosting-panel firewall rules.
+    </Note>
+  </Step>
+
+  <Step title="Verify the connection">
+    Start your server and look for a line in the console similar to:
+
+    ```
+    [Geyser-Fabric] Started Geyser on 0.0.0.0:19132
+    ```
+
+    Bedrock players can now connect using your server's IP address and port `19132`.
+  </Step>
+</Steps>
+
+## Client-side note
+
+The Fabric and NeoForge builds are **server-side only** mods. Players do not need to install anything on their client.
+
+## Floodgate
+
+[Floodgate](https://geysermc.org/download#floodgate) is an optional companion mod available for both Fabric and NeoForge. It lets Bedrock players authenticate without a Java Edition account.
+
+<Warning>
+  Install the matching Floodgate variant for your loader (Floodgate-Fabric or Floodgate-NeoForge). Do not mix loaders.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Configuration reference" icon="sliders" href="/configuration/config-reference">
+    Full description of every Geyser config option.
+  </Card>
+  <Card title="Download Geyser" icon="download" href="https://geysermc.org/download">
+    Get the latest Geyser-Fabric or Geyser-NeoForge build.
+  </Card>
+</CardGroup>

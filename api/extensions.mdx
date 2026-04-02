@@ -1,0 +1,285 @@
+---
+title: "Building Extensions"
+description: "Create a Geyser extension — a plugin that runs inside Geyser with full access to the API."
+---
+
+A Geyser **extension** is a JAR file loaded by Geyser itself at startup. Extensions have access to the full Geyser API regardless of the underlying server platform (Paper, Fabric, Velocity, etc.).
+
+## Overview
+
+Every extension must:
+
+1. Implement the `Extension` interface
+2. Include an `extension.yml` descriptor in the JAR root
+3. Be placed in Geyser's `extensions/` folder
+
+---
+
+## Step-by-step guide
+
+<Steps>
+  <Step title="Add the Geyser API dependency">
+    Set up your Gradle or Maven project with the Geyser API (see [API Overview](/api/overview)).
+
+    A minimal `build.gradle.kts` for an extension:
+
+    ```kotlin
+    plugins {
+        java
+    }
+
+    group = "com.example"
+    version = "1.0.0"
+
+    repositories {
+        maven("https://repo.opencollab.dev/maven-snapshots/")
+    }
+
+    dependencies {
+        compileOnly("org.geysermc.geyser:api:2.9.5-SNAPSHOT")
+    }
+
+    tasks.jar {
+        // Include extension.yml in the final JAR
+        from("src/main/resources")
+    }
+    ```
+  </Step>
+
+  <Step title="Implement the Extension interface">
+    Create your main class that implements `Extension`. You do **not** extend any base class; `Extension` is a plain interface.
+
+    ```java
+    package com.example.myextension;
+
+    import org.geysermc.geyser.api.extension.Extension;
+    import org.geysermc.geyser.api.event.lifecycle.GeyserPostInitializeEvent;
+    import org.geysermc.event.subscribe.Subscribe;
+
+    public class MyExtension implements Extension {
+
+        @Subscribe
+        public void onPostInitialize(GeyserPostInitializeEvent event) {
+            this.logger().info("MyExtension has loaded!");
+        }
+    }
+    ```
+
+    <Note>
+      You do not need to annotate or register the main class separately — Geyser discovers it via `extension.yml`.
+    </Note>
+  </Step>
+
+  <Step title="Create extension.yml">
+    Place `extension.yml` at the root of your JAR (i.e., `src/main/resources/extension.yml`):
+
+    ```yaml
+    id: my-extension
+    name: My Extension
+    main: com.example.myextension.MyExtension
+    api: "2.9.0"
+    version: "1.0.0"
+    authors:
+      - YourName
+    description: "A short description of what this extension does."
+    ```
+
+    <Warning>
+      The `id` field must match the pattern `[a-z][a-z0-9-_]{0,63}` — lowercase letter first, then letters, digits, hyphens, or underscores, up to 64 characters total. The `name` field must match `^[A-Za-z_.-]+$`. The `api` field must be in `human.major.minor` format (e.g. `"2.9.0"`).
+    </Warning>
+
+    #### extension.yml fields
+
+    | Field | Required | Description |
+    |-------|----------|-------------|
+    | `id` | Yes | Unique extension identifier — must match `[a-z][a-z0-9-_]{0,63}` |
+    | `name` | Yes | Human-readable name — must match `^[A-Za-z_.-]+$` (letters, underscores, dots, hyphens) |
+    | `main` | Yes | Fully-qualified main class name |
+    | `api` | Yes | Required Geyser API version in `human.major.minor` format (e.g. `"2.9.0"`) |
+    | `version` | Yes | Extension version string |
+    | `authors` | No | List of author names (can also use singular `author`) |
+    | `description` | No | Short description |
+    | `dependencies` | No | Map of extension IDs to dependency config (`required`, `load`) |
+  </Step>
+
+  <Step title="Register event listeners">
+    Use `@Subscribe` on methods inside your `Extension` class. Geyser automatically scans the extension instance for subscribed methods.
+
+    ```java
+    import org.geysermc.event.subscribe.Subscribe;
+    import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
+    import org.geysermc.geyser.api.event.bedrock.SessionDisconnectEvent;
+    import org.geysermc.geyser.api.event.lifecycle.GeyserDefineCustomItemsEvent;
+
+    public class MyExtension implements Extension {
+
+        @Subscribe
+        public void onSessionJoin(SessionJoinEvent event) {
+            this.logger().info(event.connection().name() + " joined!");
+        }
+
+        @Subscribe
+        public void onSessionDisconnect(SessionDisconnectEvent event) {
+            this.logger().info(event.connection().name() + " disconnected: "
+                + event.disconnectReason());
+        }
+
+        @Subscribe
+        public void onDefineCustomItems(GeyserDefineCustomItemsEvent event) {
+            // Register custom items here
+        }
+    }
+    ```
+
+    Alternatively, you can register a separate listener object using the extension's event bus:
+
+    ```java
+    this.eventBus().subscribe(this, SessionJoinEvent.class, event -> {
+        this.logger().info("A player joined: " + event.connection().name());
+    });
+    ```
+  </Step>
+
+  <Step title="Use lifecycle helpers">
+    Your extension instance is always available as `this` inside subscribed methods, giving access to logging, data folder, and the Geyser API.
+
+    ```java
+    // Extension logger
+    this.logger().info("Hello from " + this.name());
+    this.logger().warning("Something looks off");
+    this.logger().error("A fatal error occurred", exception);
+
+    // Extension data folder (created on first access if it doesn't exist)
+    Path dataFolder = this.dataFolder();
+
+    // The GeyserApi instance
+    GeyserApi api = this.geyserApi();
+
+    // Extension description
+    ExtensionDescription desc = this.description();
+    String id = desc.id();
+    String version = desc.version();
+    List<String> authors = desc.authors();
+    ```
+  </Step>
+
+  <Step title="Build and deploy">
+    Build your JAR with `./gradlew jar` (or `mvn package`), then copy it into the `extensions/` folder inside your Geyser data directory. Restart Geyser to load the extension.
+  </Step>
+</Steps>
+
+---
+
+## Extension interface reference
+
+The `Extension` interface (in `org.geysermc.geyser.api.extension`) provides the following default methods:
+
+### Identity and metadata
+
+```java
+String name()                          // Human-readable name from extension.yml
+ExtensionDescription description()     // Full description object
+String rootCommand()                   // Root command prefix (defaults to extension id)
+```
+
+### Utilities
+
+```java
+ExtensionLogger logger()               // Extension-scoped logger
+Path dataFolder()                      // Persistent data directory
+ExtensionEventBus eventBus()           // Event bus scoped to this extension
+ExtensionManager extensionManager()    // Access the global extension manager
+GeyserApi geyserApi()                  // The main GeyserApi instance
+```
+
+### Lifecycle
+
+```java
+boolean isEnabled()                    // Whether the extension is currently enabled
+void setEnabled(boolean enabled)       // Enable or disable the extension
+void disable()                         // Disable and unregister all event listeners
+```
+
+---
+
+## ExtensionDescription fields
+
+`ExtensionDescription` exposes the parsed content of `extension.yml` at runtime:
+
+```java
+ExtensionDescription desc = this.description();
+
+String id = desc.id();
+String name = desc.name();
+String main = desc.main();
+String version = desc.version();
+List<String> authors = desc.authors();
+
+// API version components
+int humanApi  = desc.humanApiVersion();
+int majorApi  = desc.majorApiVersion();
+int minorApi  = desc.minorApiVersion();
+String apiVersion = desc.apiVersion(); // "human.major.minor"
+```
+
+---
+
+## ExtensionLogger methods
+
+```java
+ExtensionLogger log = this.logger();
+
+log.info(String message)
+log.warning(String message)
+log.error(String message)
+log.error(String message, Throwable error)
+log.severe(String message)
+log.severe(String message, Throwable error)
+log.debug(String message)
+boolean isDebug = log.isDebug()
+String prefix = log.prefix()
+```
+
+---
+
+## Minimal complete example
+
+```java
+package com.example.myextension;
+
+import org.geysermc.event.subscribe.Subscribe;
+import org.geysermc.geyser.api.event.lifecycle.GeyserPostInitializeEvent;
+import org.geysermc.geyser.api.event.lifecycle.GeyserShutdownEvent;
+import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
+import org.geysermc.geyser.api.extension.Extension;
+
+public class MyExtension implements Extension {
+
+    @Subscribe
+    public void onPostInitialize(GeyserPostInitializeEvent event) {
+        this.logger().info("MyExtension enabled on platform: "
+            + this.geyserApi().platformType());
+    }
+
+    @Subscribe
+    public void onShutdown(GeyserShutdownEvent event) {
+        this.logger().info("MyExtension shutting down.");
+    }
+
+    @Subscribe
+    public void onJoin(SessionJoinEvent event) {
+        this.logger().info(event.connection().name() + " connected from Bedrock.");
+    }
+}
+```
+
+```yaml
+# extension.yml
+id: my-extension
+name: My Extension
+main: com.example.myextension.MyExtension
+api: "2.9.0"
+version: "1.0.0"
+authors:
+  - ExampleDev
+```
